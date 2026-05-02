@@ -1,0 +1,18 @@
+{
+  "_comment": "Lean4 only: lean-lsp-mcp + proof-explorer. Requires Lean4, elan, and a lake project.",
+  "mcpServers": {
+    "lean-lsp": {
+      "command": "uvx",
+      "args": ["lean-lsp-mcp"],
+      "_tools": ["check_file", "get_goal", "lean_search", "loogle", "lean_hammer", "lean_state_search"],
+      "_docs": "https://github.com/oOo0oOo/lean-lsp-mcp"
+    },
+    "proof-explorer": {
+      "command": "uvx",
+      "args": ["math-proof-explorer-mcp"],
+      "_tools": ["proof_tree", "goal_explain", "tactic_history", "hypothesis_graph", "sorry_map"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/proof-explorer/"
+    }
+  }
+}

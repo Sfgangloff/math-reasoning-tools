@@ -1,0 +1,19 @@
+{
+  "_comment": "Minimal: compute + search. No Lean4 required. Good starting point.",
+  "mcpServers": {
+    "math-compute": {
+      "command": "uvx",
+      "args": ["math-compute-mcp"],
+      "_tools": ["sympy_eval", "sympy_solve", "sympy_diff", "sympy_integrate", "sympy_factor", "sympy_expand", "batch_examples", "z3_check", "oeis_lookup"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/math-compute/"
+    },
+    "math-search": {
+      "command": "uvx",
+      "args": ["math-search-mcp"],
+      "_tools": ["arxiv_search", "arxiv_get", "mathworld_lookup", "wikipedia_math", "oeis_search", "zbmath_search"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/math-search/"
+    }
+  }
+}

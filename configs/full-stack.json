@@ -1,0 +1,46 @@
+{
+  "_comment": "Full stack: all original servers + lean-lsp-mcp. Requires Lean4 for lean-lsp and proof-explorer.",
+  "mcpServers": {
+    "lean-lsp": {
+      "command": "uvx",
+      "args": ["lean-lsp-mcp"],
+      "_tools": ["check_file", "get_goal", "lean_search", "loogle", "lean_hammer", "lean_state_search"],
+      "_docs": "https://github.com/oOo0oOo/lean-lsp-mcp"
+    },
+    "math-compute": {
+      "command": "uvx",
+      "args": ["math-compute-mcp"],
+      "_tools": ["sympy_eval", "sympy_solve", "sympy_diff", "sympy_integrate", "sympy_factor", "sympy_expand", "batch_examples", "z3_check", "oeis_lookup"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/math-compute/"
+    },
+    "math-viz": {
+      "command": "uvx",
+      "args": ["math-viz-mcp"],
+      "_tools": ["plot_function", "plot_parametric", "plot_surface", "draw_graph", "draw_poset", "draw_simplicial_complex", "render_latex", "draw_matrix"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/math-viz/"
+    },
+    "math-search": {
+      "command": "uvx",
+      "args": ["math-search-mcp"],
+      "_tools": ["arxiv_search", "arxiv_get", "mathlib_search", "mathworld_lookup", "wikipedia_math", "oeis_search", "zbmath_search"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/math-search/"
+    },
+    "commutative-diagrams": {
+      "command": "uvx",
+      "args": ["math-commutative-diagrams-mcp"],
+      "_tools": ["render_tikzcd", "render_quiver", "diagram_from_description"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/commutative-diagrams/"
+    },
+    "proof-explorer": {
+      "command": "uvx",
+      "args": ["math-proof-explorer-mcp"],
+      "_tools": ["proof_tree", "goal_explain", "tactic_history", "hypothesis_graph", "sorry_map"],
+      "_status": "planned — not yet published",
+      "_docs": "servers/proof-explorer/"
+    }
+  }
+}

@@ -1,0 +1,3 @@
+[submodule "external/lean-lsp-mcp"]
+	path = external/lean-lsp-mcp
+	url = https://github.com/oOo0oOo/lean-lsp-mcp.git
