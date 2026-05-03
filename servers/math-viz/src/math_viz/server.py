@@ -1,7 +1,11 @@
 import base64
 import math
+import os
+import re
+import time
 from collections import defaultdict
 from io import BytesIO
+from pathlib import Path
 from typing import Optional
 
 import matplotlib
@@ -23,19 +27,24 @@ mcp = FastMCP("math-viz")
 
 _TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application,)
 _DPI = 150
+_SAVE_DIR: Path | None = Path(d) if (d := os.environ.get("MATH_TOOLS_IMAGE_DIR")) else None
 
 
-def _fig_to_b64(fig: plt.Figure) -> str:
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight")
-    buf.seek(0)
-    data = base64.b64encode(buf.read()).decode()
-    plt.close(fig)
-    return data
+def _maybe_save_png(raw: bytes, description: str) -> None:
+    if _SAVE_DIR is None:
+        return
+    _SAVE_DIR.mkdir(parents=True, exist_ok=True)
+    slug = re.sub(r"[^a-zA-Z0-9]+", "_", description)[:60].strip("_")
+    (_SAVE_DIR / f"{int(time.time() * 1000)}_{slug}.png").write_bytes(raw)
 
 
 def _image(fig: plt.Figure, description: str) -> dict:
-    return {"type": "image", "data": _fig_to_b64(fig), "mimeType": "image/png", "alt": description}
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight")
+    plt.close(fig)
+    raw = buf.getvalue()
+    _maybe_save_png(raw, description)
+    return {"type": "image", "data": base64.b64encode(raw).decode(), "mimeType": "image/png", "alt": description}
 
 
 def _lambdify_expr(expr_str: str, var_name: str):

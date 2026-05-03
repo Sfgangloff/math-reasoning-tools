@@ -1,9 +1,11 @@
 import base64
 import math
+import os
 import re
 import shutil
 import subprocess
 import tempfile
+import time
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
@@ -18,15 +20,24 @@ from fastmcp import FastMCP
 mcp = FastMCP("commutative-diagrams")
 
 _DPI = 150
+_SAVE_DIR: Path | None = Path(d) if (d := os.environ.get("MATH_TOOLS_IMAGE_DIR")) else None
+
+
+def _maybe_save_png(raw: bytes, description: str) -> None:
+    if _SAVE_DIR is None:
+        return
+    _SAVE_DIR.mkdir(parents=True, exist_ok=True)
+    slug = re.sub(r"[^a-zA-Z0-9]+", "_", description)[:60].strip("_")
+    (_SAVE_DIR / f"{int(time.time() * 1000)}_{slug}.png").write_bytes(raw)
 
 
 def _fig_to_image(fig: plt.Figure, description: str) -> dict:
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight")
-    buf.seek(0)
-    data = base64.b64encode(buf.read()).decode()
     plt.close(fig)
-    return {"type": "image", "data": data, "mimeType": "image/png", "alt": description}
+    raw = buf.getvalue()
+    _maybe_save_png(raw, description)
+    return {"type": "image", "data": base64.b64encode(raw).decode(), "mimeType": "image/png", "alt": description}
 
 
 @mcp.tool()
@@ -77,9 +88,9 @@ def render_tikzcd(tikzcd_source: str) -> dict:
             if images:
                 buf = BytesIO()
                 images[0].save(buf, format="PNG")
-                buf.seek(0)
-                data = base64.b64encode(buf.read()).decode()
-                return {"type": "image", "data": data, "mimeType": "image/png", "alt": "Commutative diagram"}
+                raw = buf.getvalue()
+                _maybe_save_png(raw, "Commutative diagram (tikzcd)")
+                return {"type": "image", "data": base64.b64encode(raw).decode(), "mimeType": "image/png", "alt": "Commutative diagram"}
         except ImportError:
             pass
 
