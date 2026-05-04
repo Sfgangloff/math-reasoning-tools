@@ -38,6 +38,18 @@ available in every Claude Code session — no per-project config needed:
 python3 scripts/setup-mcp.py
 ```
 
+The script then checks for the system-level binaries that some servers shell
+out to (`ripgrep`, `poppler`, `pdflatex`, `elan`) and, for each one missing,
+prints the exact install command for your OS and prompts before running it.
+Use `--skip-deps` to skip the check, or `--yes` to auto-confirm every prompt.
+
+| Binary | Used by | macOS (brew) | Debian/Ubuntu (apt) | Fedora (dnf) |
+|--------|---------|--------------|---------------------|--------------|
+| `rg` | `lean-lsp-mcp.lean_local_search` | `brew install ripgrep` | `apt-get install ripgrep` | `dnf install ripgrep` |
+| `pdftoppm` | `commutative-diagrams` (PDF → PNG) | `brew install poppler` | `apt-get install poppler-utils` | `dnf install poppler-utils` |
+| `pdflatex` | `commutative-diagrams.render_tikzcd` | `brew install --cask mactex-no-gui` | `apt-get install texlive-latex-base texlive-latex-extra texlive-pictures` | `dnf install texlive-scheme-medium texlive-collection-pictures` |
+| `elan` | `lean-lsp-mcp.loogle` (local index) | official `elan-init.sh` | official `elan-init.sh` | official `elan-init.sh` |
+
 To verify the servers boot correctly:
 
 ```bash
