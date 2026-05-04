@@ -4,7 +4,7 @@
     "math-compute": {
       "command": "uvx",
       "args": ["math-compute-mcp"],
-      "_tools": ["sympy_eval", "sympy_solve", "sympy_diff", "sympy_integrate", "sympy_factor", "sympy_expand", "batch_examples", "z3_check", "oeis_lookup"],
+      "_tools": ["sympy_eval", "sympy_solve", "sympy_diff", "sympy_integrate", "sympy_factor", "sympy_expand", "batch_examples", "conjecture_test", "find_counterexample", "z3_check", "oeis_lookup"],
       "_docs": "servers/math-compute/"
     },
     "math-viz": {

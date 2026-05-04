@@ -10,13 +10,13 @@
     "proof-explorer": {
       "command": "uvx",
       "args": ["math-proof-explorer-mcp"],
-      "_tools": ["proof_tree", "goal_explain", "tactic_history", "hypothesis_graph", "sorry_map"],
+      "_tools": ["proof_tree", "goal_explain", "tactic_history", "hypothesis_graph", "sorry_map", "lean_minimal_hypotheses"],
       "_docs": "servers/proof-explorer/"
     },
     "math-search": {
       "command": "uvx",
       "args": ["math-search-mcp"],
-      "_tools": ["arxiv_search", "arxiv_get", "arxiv_fetch_source", "arxiv_fetch_text", "arxiv_extract_math", "loogle_search", "mathworld_lookup", "wikipedia_math"],
+      "_tools": ["arxiv_search", "arxiv_get", "arxiv_fetch_source", "arxiv_fetch_text", "arxiv_extract_math", "arxiv_extract_definitions", "arxiv_extract_citations", "arxiv_outline", "loogle_search", "mathworld_lookup", "wikipedia_math"],
       "_note": "loogle_search is the no-Lean-install Mathlib fallback. Inside an open Lean project, prefer the lean-lsp-mcp loogle tool.",
       "_docs": "servers/math-search/"
     },

@@ -35,11 +35,16 @@ working in a Lean4 project.
 |------|---------------|
 | Simplify / factor / differentiate / integrate symbolically | `sympy_eval`, `sympy_solve` |
 | Compute small examples to find a pattern | `batch_examples` |
+| Stress-test a conjecture by random sampling | `conjecture_test` |
+| Search for a counterexample over a structured domain | `find_counterexample` |
 | Check if a formula holds in a decidable fragment | `z3_check` |
 | Look up an integer sequence | `oeis_lookup` or `oeis_search` |
 | Find a relevant paper | `arxiv_search` |
 | Read the full text / source of an arXiv paper | `arxiv_fetch_source` (LaTeX, preferred) or `arxiv_fetch_text` (PDF text fallback) |
 | Extract theorems/definitions for formalization | `arxiv_extract_math` |
+| Pull a paper's definitions as a glossary | `arxiv_extract_definitions` |
+| Pull a paper's citations + bibliography | `arxiv_extract_citations` |
+| Skim a paper's section structure | `arxiv_outline` |
 | Look up a definition / theorem statement | `mathworld_lookup` or `wikipedia_math` |
 | Search zbMATH for a paper / review | `zbmath_search` |
 | Plot a function or surface | `plot_function`, `plot_surface` |
@@ -66,6 +71,7 @@ working in a Lean4 project.
 | Understand the current Lean4 proof state | `proof_tree`, `goal_explain` |
 | Visualize hypothesis dependencies | `hypothesis_graph` |
 | Find all `sorry`s in a Lean4 file | `sorry_map` |
+| Identify which hypotheses of a theorem are actually load-bearing | `lean_minimal_hypotheses` |
 
 ## Lean4 workflow
 

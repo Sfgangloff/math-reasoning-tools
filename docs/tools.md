@@ -17,6 +17,8 @@ only matter inside a Lean4 project.
 | `sympy_factor` | Factor a polynomial over ℤ, ℚ, or ℂ |
 | `sympy_expand` | Expand a product or power |
 | `batch_examples` | Evaluate an expression for a range of integer values — useful for pattern-finding |
+| `conjecture_test` | Stress-test a claim by random sampling; reports first counterexample |
+| `find_counterexample` | Exhaustively enumerate values from `naturals`/`integers`/`rationals`/`polynomials_1var` |
 | `z3_check` | Check satisfiability of a formula with Z3 |
 | `oeis_lookup` | Look up an integer sequence on OEIS by A-number or terms |
 
@@ -50,6 +52,9 @@ All tools save a PNG to `<project>/images/` and return the file path.
 | `arxiv_fetch_source` | Download an arXiv paper's LaTeX source — highest fidelity for theorem statements |
 | `arxiv_fetch_text` | Download an arXiv paper's PDF and return extracted text (lossy on math) |
 | `arxiv_extract_math` | Extract `\begin{theorem}...\end{theorem}`-style environments from a paper's LaTeX source |
+| `arxiv_extract_definitions` | Extract `\begin{definition}` envs as a glossary; defined term inferred from optional arg or `\textbf{}`/`\emph{}` |
+| `arxiv_extract_citations` | List `\cite`d entries with bibliography entry + sections that cite each |
+| `arxiv_outline` | Section/subsection tree with the first sentence after each heading |
 | `loogle_search` | Search Mathlib4 declarations via the public Loogle HTTP service (no Lean install needed) |
 | `mathworld_lookup` | Look up a concept on Wolfram MathWorld |
 | `wikipedia_math` | Retrieve a Wikipedia math article (full page or specific section) |
@@ -108,6 +113,7 @@ ones most relevant in a proof workflow:
 |------|-------------|----------|
 | `sorry_map` | List all `sorry` placeholders in a `.lean` file with line numbers | file access only |
 | `tactic_history` | Extract the tactic sequence for a named theorem | file access only |
+| `lean_minimal_hypotheses` | For each explicit `(h : T)` of a theorem, drop it and recompile; reports load-bearing vs. removable | `lean` (+ `lake` if in a project) on PATH |
 | `proof_tree` | Visual proof tree at a cursor position | lean-lsp-mcp |
 | `goal_explain` | Plain-language explanation of the current Lean4 goal | lean-lsp-mcp |
 | `hypothesis_graph` | Dependency graph of local context hypotheses | lean-lsp-mcp |

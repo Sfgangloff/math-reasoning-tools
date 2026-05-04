@@ -10,7 +10,7 @@
     "math-compute": {
       "command": "uvx",
       "args": ["math-compute-mcp"],
-      "_tools": ["sympy_eval", "sympy_solve", "sympy_diff", "sympy_integrate", "sympy_factor", "sympy_expand", "batch_examples", "z3_check", "oeis_lookup"],
+      "_tools": ["sympy_eval", "sympy_solve", "sympy_diff", "sympy_integrate", "sympy_factor", "sympy_expand", "batch_examples", "conjecture_test", "find_counterexample", "z3_check", "oeis_lookup"],
       "_status": "planned — not yet published",
       "_docs": "servers/math-compute/"
     },
@@ -24,7 +24,7 @@
     "math-search": {
       "command": "uvx",
       "args": ["math-search-mcp"],
-      "_tools": ["arxiv_search", "arxiv_get", "arxiv_fetch_source", "arxiv_fetch_text", "arxiv_extract_math", "loogle_search", "mathworld_lookup", "wikipedia_math", "oeis_search", "zbmath_search"],
+      "_tools": ["arxiv_search", "arxiv_get", "arxiv_fetch_source", "arxiv_fetch_text", "arxiv_extract_math", "arxiv_extract_definitions", "arxiv_extract_citations", "arxiv_outline", "loogle_search", "mathworld_lookup", "wikipedia_math", "oeis_search", "zbmath_search"],
       "_status": "planned — not yet published",
       "_docs": "servers/math-search/"
     },
@@ -38,7 +38,7 @@
     "proof-explorer": {
       "command": "uvx",
       "args": ["math-proof-explorer-mcp"],
-      "_tools": ["proof_tree", "goal_explain", "tactic_history", "hypothesis_graph", "sorry_map"],
+      "_tools": ["proof_tree", "goal_explain", "tactic_history", "hypothesis_graph", "sorry_map", "lean_minimal_hypotheses"],
       "_status": "planned — not yet published",
       "_docs": "servers/proof-explorer/"
     }

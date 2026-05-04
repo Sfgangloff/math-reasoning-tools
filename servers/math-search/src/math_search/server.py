@@ -52,17 +52,18 @@ def _arxiv_get_source_archive(arxiv_id: str) -> bytes:
     return r.content
 
 
-def _extract_tex_files(raw: bytes) -> dict[str, str]:
-    """Decode an arXiv source payload into a mapping of filename → tex content.
+def _extract_archive_files(raw: bytes, suffixes: tuple[str, ...]) -> dict[str, str]:
+    """Decode an arXiv source payload into a mapping of filename → text.
 
     arXiv hands back any of: a gzipped tar of project files, a gzip-of-a-single-tex,
-    or (rarely) a bare .tex. Try each in turn.
+    or (rarely) a bare .tex. Try each in turn. Only filenames ending in `suffixes`
+    are returned.
     """
     files: dict[str, str] = {}
     try:
         with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
             for m in tar.getmembers():
-                if m.isfile() and m.name.endswith(".tex"):
+                if m.isfile() and m.name.endswith(suffixes):
                     f = tar.extractfile(m)
                     if f:
                         files[m.name] = f.read().decode("utf-8", errors="replace")
@@ -84,6 +85,10 @@ def _extract_tex_files(raw: bytes) -> dict[str, str]:
     except UnicodeDecodeError:
         pass
     return files
+
+
+def _extract_tex_files(raw: bytes) -> dict[str, str]:
+    return _extract_archive_files(raw, (".tex",))
 
 
 _MATH_ENV_ALL = [
@@ -301,6 +306,213 @@ def arxiv_extract_math(arxiv_id: str, kinds: Optional[list[str]] = None) -> str:
     if not results:
         return f"No matching environments {kinds} found in '{arxiv_id}'."
     return f"{len(results)} environment(s) found in '{arxiv_id}':\n\n" + "\n\n---\n\n".join(results)
+
+
+def _infer_defined_term(opt_arg: str, body: str) -> str:
+    """Best-effort: pull the defined term out of a definition env's optional arg
+    or its first \\textbf{}/\\emph{}/\\textit{} occurrence."""
+    if opt_arg:
+        return opt_arg
+    for cmd in ("textbf", "emph", "textit", "textsl"):
+        m = re.search(rf"\\{cmd}\{{([^}}]+)\}}", body[:300])
+        if m:
+            return m.group(1)
+    snippet = re.sub(r"[\\$%&]", " ", body[:80])
+    return snippet.strip().split(".")[0][:60] or "(unnamed)"
+
+
+@mcp.tool()
+def arxiv_extract_definitions(arxiv_id: str, max_per_def: int = 800) -> str:
+    """Extract \\begin{definition}...\\end{definition} environments from a paper's
+    LaTeX source, formatted as a glossary. The defined term is inferred from the
+    optional argument [Term] or from \\textbf{Term}/\\emph{Term} near the start of
+    the body.
+    max_per_def: truncate each body to this many characters (default 800).
+    Example: arxiv_id='2401.12345'"""
+    arxiv_id = _arxiv_clean_id(arxiv_id)
+    try:
+        raw = _arxiv_get_source_archive(arxiv_id)
+    except httpx.HTTPStatusError as e:
+        return f"arXiv source fetch for '{arxiv_id}' failed (status {e.response.status_code})."
+    files = _extract_tex_files(raw)
+    if not files:
+        return f"No .tex files in arXiv source for '{arxiv_id}'."
+
+    entries: list[tuple[str, str | None, str, str]] = []
+    for fname, content in files.items():
+        for m in re.finditer(
+            r"\\begin\{definition\}(\[[^\]]*\])?(.*?)\\end\{definition\}",
+            content,
+            flags=re.DOTALL,
+        ):
+            opt = (m.group(1) or "").strip("[]").strip()
+            body = m.group(2).strip()
+            term = _infer_defined_term(opt, body)
+            label_m = re.search(r"\\label\{([^}]+)\}", body)
+            label = label_m.group(1) if label_m else None
+            short = body[:max_per_def] + ("…" if len(body) > max_per_def else "")
+            entries.append((term, label, fname, short))
+
+    if not entries:
+        return f"No \\begin{{definition}} environments found in '{arxiv_id}'."
+
+    parts = []
+    for term, label, fname, body in entries:
+        meta_bits = []
+        if label:
+            meta_bits.append(f"\\label={label}")
+        meta_bits.append(fname)
+        parts.append(f"**{term}**  ({', '.join(meta_bits)})\n{body}")
+    return f"{len(entries)} definition(s) in '{arxiv_id}':\n\n" + "\n\n---\n\n".join(parts)
+
+
+def _walk_with_sections(tex: str):
+    """Yield (cite_key, section_label) for every \\cite key in `tex`,
+    associating it with the nearest preceding \\section / \\subsection."""
+    section_re = re.compile(r"\\(section|subsection|subsubsection)\*?\{([^}]+)\}")
+    cite_re = re.compile(r"\\cite[pt]?\*?(?:\[[^\]]*\])?(?:\[[^\]]*\])?\{([^}]+)\}")
+
+    events: list[tuple[int, str, str | None, str]] = []
+    for m in section_re.finditer(tex):
+        events.append((m.start(), "section", m.group(1), m.group(2).strip()))
+    for m in cite_re.finditer(tex):
+        events.append((m.start(), "cite", None, m.group(1)))
+    events.sort(key=lambda e: e[0])
+
+    current_section = ""
+    current_subsection = ""
+    for _pos, kind, level, val in events:
+        if kind == "section":
+            if level == "section":
+                current_section = val
+                current_subsection = ""
+            elif level == "subsection":
+                current_subsection = val
+            # subsubsection: don't track in label, keeps it readable
+        else:
+            label = current_section + (f" / {current_subsection}" if current_subsection else "")
+            for key in val.split(","):
+                yield key.strip(), label
+
+
+def _extract_bibitems(text: str) -> dict[str, str]:
+    """Parse \\bibitem entries out of a .tex or .bbl chunk."""
+    out: dict[str, str] = {}
+    pattern = re.compile(
+        r"\\bibitem\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}(.*?)(?=\\bibitem|\\end\{thebibliography\}|\Z)",
+        re.DOTALL,
+    )
+    for m in pattern.finditer(text):
+        key = m.group(1).strip()
+        body = re.sub(r"\s+", " ", m.group(2).strip())
+        out[key] = body[:300] + ("…" if len(body) > 300 else "")
+    return out
+
+
+@mcp.tool()
+def arxiv_extract_citations(arxiv_id: str) -> str:
+    """List every \\cite-d entry in an arXiv paper's LaTeX source, with the bibliography
+    entry (if present) and the sections that cite it. Useful for understanding what
+    literature a paper builds on.
+    Note: needs the source to ship a .bbl or to embed a `thebibliography` block.
+    Raw .bib (un-bibtexed) is not parsed.
+    Example: arxiv_id='2401.12345'"""
+    arxiv_id = _arxiv_clean_id(arxiv_id)
+    try:
+        raw = _arxiv_get_source_archive(arxiv_id)
+    except httpx.HTTPStatusError as e:
+        return f"arXiv source fetch for '{arxiv_id}' failed (status {e.response.status_code})."
+    files = _extract_archive_files(raw, (".tex", ".bbl"))
+    if not files:
+        return f"No source files for '{arxiv_id}'."
+
+    bib_entries: dict[str, str] = {}
+    for content in files.values():
+        bib_entries.update(_extract_bibitems(content))
+
+    cites: dict[str, list[str]] = {}
+    for fname, content in files.items():
+        if not fname.endswith(".tex"):
+            continue
+        for key, section in _walk_with_sections(content):
+            cites.setdefault(key, []).append(section)
+
+    if not cites:
+        return f"No \\cite commands found in '{arxiv_id}'."
+
+    parts = []
+    for key in sorted(cites):
+        entry = bib_entries.get(key, "(no bibliography entry found)")
+        seen: set[str] = set()
+        sections = []
+        for s in cites[key]:
+            label = s or "(unsectioned)"
+            if label not in seen:
+                seen.add(label)
+                sections.append(label)
+        parts.append(f"[{key}]  {entry}\n  cited in: {', '.join(sections)}")
+    return f"{len(cites)} citation(s) in '{arxiv_id}':\n\n" + "\n\n".join(parts)
+
+
+def _first_sentence(tex: str) -> str:
+    """Best-effort first sentence of plain text after a section heading."""
+    t = tex.lstrip()
+    t = re.sub(r"^\\label\{[^}]+\}\s*", "", t)
+    t = re.sub(r"\\[a-zA-Z]+\*?\s*(\{[^}]*\})?", " ", t)
+    t = re.sub(r"\$[^$]+\$", "...", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    if not t:
+        return ""
+    m = re.search(r"^([^.!?]{10,250}[.!?])", t)
+    if m:
+        return m.group(1)
+    return t[:200] + ("…" if len(t) > 200 else "")
+
+
+@mcp.tool()
+def arxiv_outline(arxiv_id: str, depth: int = 2) -> str:
+    """Return the section structure of an arXiv paper, with the first sentence of
+    plain text after each heading. Useful for skimming a paper before deep-reading.
+    depth: 1 = sections only, 2 = + subsections, 3 = + subsubsections.
+    Example: arxiv_id='2401.12345', depth=2"""
+    if depth < 1 or depth > 3:
+        return "depth must be 1, 2, or 3."
+    arxiv_id = _arxiv_clean_id(arxiv_id)
+    try:
+        raw = _arxiv_get_source_archive(arxiv_id)
+    except httpx.HTTPStatusError as e:
+        return f"arXiv source fetch for '{arxiv_id}' failed (status {e.response.status_code})."
+    files = _extract_tex_files(raw)
+    if not files:
+        return f"No .tex files in arXiv source for '{arxiv_id}'."
+
+    main = next(
+        ((n, c) for n, c in files.items() if "\\begin{document}" in c or "\\documentclass" in c),
+        None,
+    )
+    if main is None:
+        main = max(files.items(), key=lambda kv: len(kv[1]))
+    fname, content = main
+
+    levels = ["section", "subsection", "subsubsection"][:depth]
+    pattern = re.compile(rf"\\({'|'.join(levels)})\*?\{{([^}}]+)\}}")
+    matches = list(pattern.finditer(content))
+    if not matches:
+        return f"No section headings (up to {levels[-1]}) found in {fname}."
+
+    indent_for = {"section": "", "subsection": "    ", "subsubsection": "        "}
+    out = [f"Outline of '{arxiv_id}' ({fname}):", ""]
+    for i, m in enumerate(matches):
+        level = m.group(1)
+        title = m.group(2).strip()
+        end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+        body = content[m.end():end_pos]
+        first = _first_sentence(body)
+        ind = indent_for[level]
+        out.append(f"{ind}{title}")
+        if first:
+            out.append(f"{ind}  > {first}")
+    return "\n".join(out)
 
 
 @mcp.tool()
