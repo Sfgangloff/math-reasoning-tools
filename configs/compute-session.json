@@ -1,0 +1,17 @@
+{
+  "_comment": "Compute session: numeric/symbolic computation with plots. No Lean, no paper search.",
+  "mcpServers": {
+    "math-compute": {
+      "command": "uvx",
+      "args": ["math-compute-mcp"],
+      "_tools": ["sympy_eval", "sympy_solve", "sympy_diff", "sympy_integrate", "sympy_factor", "sympy_expand", "batch_examples", "z3_check", "oeis_lookup"],
+      "_docs": "servers/math-compute/"
+    },
+    "math-viz": {
+      "command": "uvx",
+      "args": ["math-viz-mcp"],
+      "_tools": ["plot_function", "plot_parametric", "plot_surface", "plot_cobweb", "plot_partial_sums", "plot_phase_portrait", "plot_implicit", "plot_region", "plot_integrand_with_shading", "draw_graph", "draw_poset", "draw_simplicial_complex", "render_latex", "draw_matrix"],
+      "_docs": "servers/math-viz/"
+    }
+  }
+}

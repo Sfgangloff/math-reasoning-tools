@@ -1,0 +1,18 @@
+{
+  "_comment": "Search / literature session: paper search, paper reading, math knowledge lookup, formula rendering.",
+  "mcpServers": {
+    "math-search": {
+      "command": "uvx",
+      "args": ["math-search-mcp"],
+      "_tools": ["arxiv_search", "arxiv_get", "arxiv_fetch_source", "arxiv_fetch_text", "arxiv_extract_math", "loogle_search", "mathworld_lookup", "wikipedia_math", "oeis_search", "zbmath_search"],
+      "_docs": "servers/math-search/"
+    },
+    "math-viz": {
+      "command": "uvx",
+      "args": ["math-viz-mcp"],
+      "_tools": ["render_latex"],
+      "_note": "Full math-viz exposes 14 tools, but this profile uses it primarily for render_latex when paraphrasing formulas.",
+      "_docs": "servers/math-viz/"
+    }
+  }
+}

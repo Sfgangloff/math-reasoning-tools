@@ -76,8 +76,20 @@ To override per-project, set `MATH_TOOLS_IMAGE_DIR` in your shell or in the
 
 ### Manual config (alternative)
 
-If you'd rather not use the auto-setup script, see [`configs/full-stack.json`](configs/full-stack.json)
-and add the entries to your project's `.claude/mcp.json` by hand.
+If you'd rather not use the auto-setup script, [`configs/`](configs/) contains
+several pre-built profiles you can drop into a project's `.claude/mcp.json`:
+
+| Profile | Use when |
+|---------|----------|
+| `minimal.json` | quick computations, no Lean, no plotting |
+| `compute-session.json` | symbolic/numeric computation with plots |
+| `search-session.json` | literature search, paper reading, formula rendering |
+| `diagram-session.json` | diagram-heavy authoring (`render_tikzcd` etc.) |
+| `lean-session.json` | active Lean4 work — proof + lemma discovery + paper reading |
+| `lean4-only.json` | Lean4 only |
+| `full-stack.json` | every server (largest tool surface) |
+
+See [`docs/tools.md`](docs/tools.md) for the per-tool reference.
 
 ## Original Servers
 

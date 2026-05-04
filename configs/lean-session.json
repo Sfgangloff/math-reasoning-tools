@@ -1,0 +1,30 @@
+{
+  "_comment": "Active Lean4 session: proofs + lemma discovery + paper reading + visualization. Requires Lean4, elan, ripgrep, and a lake project.",
+  "mcpServers": {
+    "lean-lsp": {
+      "command": "uvx",
+      "args": ["lean-lsp-mcp"],
+      "_tools": ["lean_goal", "lean_term_goal", "lean_hover_info", "lean_diagnostic_messages", "lean_completions", "lean_multi_attempt", "lean_code_actions", "lean_run_code", "lean_verify", "lean_local_search", "lean_leansearch", "loogle", "lean_leanfinder", "lean_state_search", "lean_hammer_premise", "lean_build"],
+      "_docs": "https://github.com/oOo0oOo/lean-lsp-mcp"
+    },
+    "proof-explorer": {
+      "command": "uvx",
+      "args": ["math-proof-explorer-mcp"],
+      "_tools": ["proof_tree", "goal_explain", "tactic_history", "hypothesis_graph", "sorry_map"],
+      "_docs": "servers/proof-explorer/"
+    },
+    "math-search": {
+      "command": "uvx",
+      "args": ["math-search-mcp"],
+      "_tools": ["arxiv_search", "arxiv_get", "arxiv_fetch_source", "arxiv_fetch_text", "arxiv_extract_math", "loogle_search", "mathworld_lookup", "wikipedia_math"],
+      "_note": "loogle_search is the no-Lean-install Mathlib fallback. Inside an open Lean project, prefer the lean-lsp-mcp loogle tool.",
+      "_docs": "servers/math-search/"
+    },
+    "math-viz": {
+      "command": "uvx",
+      "args": ["math-viz-mcp"],
+      "_tools": ["render_latex", "draw_graph", "plot_function", "draw_poset", "draw_matrix"],
+      "_docs": "servers/math-viz/"
+    }
+  }
+}

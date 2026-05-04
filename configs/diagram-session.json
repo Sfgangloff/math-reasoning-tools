@@ -1,0 +1,17 @@
+{
+  "_comment": "Diagram-heavy session: commutative diagrams + LaTeX rendering. Requires pdflatex + poppler for tikz-cd.",
+  "mcpServers": {
+    "commutative-diagrams": {
+      "command": "uvx",
+      "args": ["math-commutative-diagrams-mcp"],
+      "_tools": ["render_tikzcd", "render_quiver", "diagram_from_description"],
+      "_docs": "servers/commutative-diagrams/"
+    },
+    "math-viz": {
+      "command": "uvx",
+      "args": ["math-viz-mcp"],
+      "_tools": ["render_latex", "draw_graph", "draw_poset", "draw_simplicial_complex", "draw_matrix"],
+      "_docs": "servers/math-viz/"
+    }
+  }
+}
