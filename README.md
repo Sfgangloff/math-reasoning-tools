@@ -28,38 +28,44 @@ A human mathematician proves theorems by: drawing diagrams, computing small exam
 uv sync
 ```
 
-### Use locally in Claude Code
+### Register the servers globally
 
-Add to your project's `.claude/mcp.json` (see [`configs/`](configs/) for full examples):
+Run once after cloning. This discovers every server under `servers/` (and `external/`)
+and writes them into the top-level `mcpServers` block of `~/.claude.json`, so they're
+available in every Claude Code session — no per-project config needed:
 
-```json
-{
-  "mcpServers": {
-    "math-compute": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/math-reasoning-tools/servers/math-compute", "math-compute-mcp"]
-    },
-    "math-viz": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/math-reasoning-tools/servers/math-viz", "math-viz-mcp"]
-    },
-    "math-search": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/math-reasoning-tools/servers/math-search", "math-search-mcp"]
-    },
-    "commutative-diagrams": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/math-reasoning-tools/servers/commutative-diagrams", "math-commutative-diagrams-mcp"]
-    },
-    "proof-explorer": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/math-reasoning-tools/servers/proof-explorer", "math-proof-explorer-mcp"]
-    }
-  }
-}
+```bash
+python3 scripts/setup-mcp.py
 ```
 
-See [`configs/full-stack.json`](configs/full-stack.json) for the configuration including lean-lsp-mcp.
+To verify the servers boot correctly:
+
+```bash
+python3 scripts/check-mcp.py
+```
+
+**Re-run `setup-mcp.py` whenever:**
+- You add a new server under `servers/` or `external/`.
+- You **move or rename the repo** — the entries in `~/.claude.json` use absolute paths, so they break if the repo's location changes. Re-running rewrites them.
+
+### Where generated images go
+
+Tools that produce images (`plot_function`, `draw_graph`, `render_tikzcd`, …) write
+the PNG to **`<your project root>/images/`** — i.e. the directory Claude Code was
+launched from. The directory is created if it doesn't exist. Resolution order:
+
+1. `MATH_TOOLS_IMAGE_DIR` env var (absolute path, overrides everything)
+2. `CLAUDE_PROJECT_DIR/images` (set by Claude Code in some contexts)
+3. `$PWD/images` (the launcher's working dir — works under `uv run --directory`)
+4. `cwd/images` (last resort)
+
+To override per-project, set `MATH_TOOLS_IMAGE_DIR` in your shell or in the
+`env` block of the server entry in `~/.claude.json`.
+
+### Manual config (alternative)
+
+If you'd rather not use the auto-setup script, see [`configs/full-stack.json`](configs/full-stack.json)
+and add the entries to your project's `.claude/mcp.json` by hand.
 
 ## Original Servers
 

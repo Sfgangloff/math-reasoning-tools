@@ -9,6 +9,27 @@ MCP servers for SMT solvers, model checkers, and formal methods tools beyond int
 | Chiasmus | [yogthos/chiasmus](https://github.com/yogthos/chiasmus) | `z3_check`, Tau Prolog queries, tree-sitter code analysis | 2 | **Recommended.** Z3 via MCP is the most useful formal verification addition to a Lean4 workflow. Handles arithmetic, linear algebra, bit-vectors, array theories. |
 | Chimera-Protocol | [mcp-research/Chimera-Protocol__csl-core](https://github.com/mcp-research/Chimera-Protocol__csl-core) | Z3 + TLA+ verification (TLA+ on roadmap) | 3 | Neuro-symbolic safety layer for AI agents. Z3 core is useful; TLA+ integration would add model checking. Heavier than Chiasmus. |
 
+### Tool inventory: Chiasmus
+
+11 tools spanning solver invocation, code analysis, and a template/skill library.
+
+**Solver core:**
+- `chiasmus_verify(solver, input, query?, format?, explain?)` — submit raw SMT-LIB or Prolog; returns sat/unsat/success, model or answers, unsat-core or derivation trace.
+- `chiasmus_lint(spec, solver_type)` — fast structural validation of a spec without running the solver.
+
+**Template / skill library:**
+- `chiasmus_skills(query)` — search the template library for verification problem patterns.
+- `chiasmus_formalize(problem)` — pick the best template for a problem, return slot-filling instructions.
+- `chiasmus_solve(problem, context?)` — end-to-end: select template, fill slots, run verification with error-correction loops.
+- `chiasmus_craft(name, domain, solver, signature, skeleton, slots, normalizations)` — author a new template.
+- `chiasmus_learn(solution_context)` — promote reusable templates from verified solutions (after 3+ reuses).
+
+**Code analysis (tree-sitter + Prolog):**
+- `chiasmus_graph(files, analysis, target?, from?, to?, cache?, include_insights?)` — call-graph analyses: summary / callers / dead-code / cycles, etc.
+- `chiasmus_map(files, mode?, format?, path?, name?, cache?)` — codebase outline (markdown or JSON: exports, imports, signatures, token estimates).
+- `chiasmus_search(query, files, top_k)` — semantic code search; returns ranked function hits with file/line/signature/docs.
+- `chiasmus_review(files, focus?, delta_against?)` — phased code-review recipe (no solver execution).
+
 ## Code Verification
 
 | Tool | URL | Tools exposed | Install difficulty | Assessment |

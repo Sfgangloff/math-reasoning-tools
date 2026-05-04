@@ -1,4 +1,3 @@
-import base64
 import math
 import os
 import re
@@ -20,29 +19,46 @@ from fastmcp import FastMCP
 mcp = FastMCP("commutative-diagrams")
 
 _DPI = 150
-_SAVE_DIR: Path | None = Path(d) if (d := os.environ.get("MATH_TOOLS_IMAGE_DIR")) else None
 
 
-def _maybe_save_png(raw: bytes, description: str) -> None:
-    if _SAVE_DIR is None:
-        return
-    _SAVE_DIR.mkdir(parents=True, exist_ok=True)
+def _resolve_save_dir() -> Path:
+    """Resolve the directory where generated images should be written.
+
+    Order: MATH_TOOLS_IMAGE_DIR > CLAUDE_PROJECT_DIR/images > $PWD/images > cwd/images.
+
+    PWD is preferred over Path.cwd() because `uv run --directory` calls os.chdir,
+    which moves cwd into the server's own package dir; PWD still reflects the
+    project Claude Code was launched from.
+    """
+    if override := os.environ.get("MATH_TOOLS_IMAGE_DIR"):
+        return Path(override).expanduser().resolve()
+    if claude_root := os.environ.get("CLAUDE_PROJECT_DIR"):
+        return Path(claude_root).resolve() / "images"
+    if pwd := os.environ.get("PWD"):
+        return Path(pwd).resolve() / "images"
+    return Path.cwd().resolve() / "images"
+
+
+def _save_png(raw: bytes, description: str) -> str:
+    save_dir = _resolve_save_dir()
+    save_dir.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", description)[:60].strip("_")
-    (_SAVE_DIR / f"{int(time.time() * 1000)}_{slug}.png").write_bytes(raw)
+    path = save_dir / f"{int(time.time() * 1000)}_{slug}.png"
+    path.write_bytes(raw)
+    return str(path)
 
 
 def _fig_to_image(fig: plt.Figure, description: str) -> dict:
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight")
     plt.close(fig)
-    raw = buf.getvalue()
-    _maybe_save_png(raw, description)
-    return {"type": "image", "data": base64.b64encode(raw).decode(), "mimeType": "image/png", "alt": description}
+    path = _save_png(buf.getvalue(), description)
+    return {"type": "text", "text": path}
 
 
 @mcp.tool()
 def render_tikzcd(tikzcd_source: str) -> dict:
-    """Render a tikz-cd commutative diagram to PNG using pdflatex.
+    """Render a tikz-cd commutative diagram. Saves a PNG to <project>/images/ and returns the file path.
     Pass only the tikzcd environment body (without \\begin{tikzcd}...\\end{tikzcd}).
     Requires: pdflatex and the tikz-cd LaTeX package installed on the system.
     Example: tikzcd_source='A \\\\arrow[r, \"f\"] \\\\arrow[d, \"h\"] & B \\\\arrow[d, \"g\"] \\\\\\\\ C \\\\arrow[r, \"k\"] & D'"""
@@ -88,9 +104,8 @@ def render_tikzcd(tikzcd_source: str) -> dict:
             if images:
                 buf = BytesIO()
                 images[0].save(buf, format="PNG")
-                raw = buf.getvalue()
-                _maybe_save_png(raw, "Commutative diagram (tikzcd)")
-                return {"type": "image", "data": base64.b64encode(raw).decode(), "mimeType": "image/png", "alt": "Commutative diagram"}
+                path = _save_png(buf.getvalue(), "Commutative diagram (tikzcd)")
+                return {"type": "text", "text": path}
         except ImportError:
             pass
 
@@ -106,7 +121,7 @@ def render_tikzcd(tikzcd_source: str) -> dict:
 
 @mcp.tool()
 def render_quiver(quiver_json: str) -> dict:
-    """Render a commutative diagram from Quiver (q.uiver.app) JSON export. Returns an image.
+    """Render a commutative diagram from Quiver (q.uiver.app) JSON export. Saves a PNG to <project>/images/ and returns the file path.
     Export from https://q.uiver.app by clicking Export → JSON, then paste here.
     Quiver JSON format: [0, {"nodes": [...], "edges": [...]}]"""
     import json
@@ -170,7 +185,7 @@ def render_quiver(quiver_json: str) -> dict:
 
 @mcp.tool()
 def diagram_from_description(description: str) -> dict:
-    """Render a commutative diagram from a simple text description. Returns an image.
+    """Render a commutative diagram from a simple text description. Saves a PNG to <project>/images/ and returns the file path.
     Format (one per line):
       objects: A B C D
       arrows: f: A -> B, g: B -> D, h: A -> C, k: C -> D

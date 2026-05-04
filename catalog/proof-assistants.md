@@ -11,6 +11,38 @@ MCP servers and tools for interacting with formal proof assistants.
 | lean4-skills | [cameronfreer/lean4-skills](https://github.com/cameronfreer/lean4-skills) | Claude Code skill pack (not MCP tools) | 2 | Prove/review/golf loop as Claude Code skills rather than MCP tools. Complements lean-lsp-mcp. |
 | lean-agentic | [agenticsorg/lean-agentic](https://github.com/agenticsorg/lean-agentic) | Hybrid Lean4/agent orchestration | 4 | Experimental. Interesting architecture but low activity. |
 
+### Tool inventory: lean-lsp-mcp
+
+22 tools, grouped by role.
+
+**File interactions (LSP-driven, position-based):**
+- `lean_file_outline(file_path)` — imports + declarations with type signatures.
+- `lean_diagnostic_messages(file_path, severity?, interactive)` — errors, warnings, infos, hints.
+- `lean_goal(file_path, line, column?)` — proof goal before/after a position.
+- `lean_term_goal(file_path, line, column)` — term-mode goal at a position.
+- `lean_hover_info(file_path, line, column)` — symbol docs + type.
+- `lean_declaration_file(file_path, line, column)` — file contents where a symbol is declared.
+- `lean_references(file_path, line, column)` — all reference sites of a symbol.
+- `lean_completions(file_path, line, column)` — autocomplete + import suggestions.
+- `lean_run_code(code)` — compile/execute a standalone snippet.
+- `lean_multi_attempt(file_path, line, column?, tactics)` — try multiple tactics, return goal+diagnostics for each.
+- `lean_code_actions(file_path, line)` — LSP code actions, including "Try This" suggestions.
+- `lean_get_widgets(file_path, line, column)` — raw widget data for proof visualizations.
+- `lean_get_widget_source(javascript_hash)` — JS source of a widget by hash.
+- `lean_profile_proof(file_path, line)` — per-line tactic timing.
+- `lean_verify(file_path, line)` — axiom audit + unsafe-pattern scan.
+
+**Search:**
+- `lean_local_search(query)` — definitions/theorems in local project + stdlib (requires ripgrep).
+- `lean_leansearch(query)` — natural-language Mathlib search via leansearch.net.
+- `lean_loogle(query)` — search by constant, type, or expression pattern.
+- `lean_leanfinder(query)` — semantic Mathlib search from informal descriptions.
+- `lean_state_search(file_path, line, column)` — theorems applicable to the current goal.
+- `lean_hammer_premise(file_path, line, column)` — premises relevant to the proof state.
+
+**Project:**
+- `lean_build()` — rebuild project + restart LSP.
+
 ## Coq / Rocq
 
 | Tool | URL | Tools exposed | Install difficulty | Assessment |

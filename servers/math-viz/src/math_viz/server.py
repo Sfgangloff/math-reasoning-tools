@@ -1,4 +1,3 @@
-import base64
 import math
 import os
 import re
@@ -27,24 +26,41 @@ mcp = FastMCP("math-viz")
 
 _TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application,)
 _DPI = 150
-_SAVE_DIR: Path | None = Path(d) if (d := os.environ.get("MATH_TOOLS_IMAGE_DIR")) else None
 
 
-def _maybe_save_png(raw: bytes, description: str) -> None:
-    if _SAVE_DIR is None:
-        return
-    _SAVE_DIR.mkdir(parents=True, exist_ok=True)
+def _resolve_save_dir() -> Path:
+    """Resolve the directory where generated images should be written.
+
+    Order: MATH_TOOLS_IMAGE_DIR > CLAUDE_PROJECT_DIR/images > $PWD/images > cwd/images.
+
+    PWD is preferred over Path.cwd() because `uv run --directory` calls os.chdir,
+    which moves cwd into the server's own package dir; PWD still reflects the
+    project Claude Code was launched from.
+    """
+    if override := os.environ.get("MATH_TOOLS_IMAGE_DIR"):
+        return Path(override).expanduser().resolve()
+    if claude_root := os.environ.get("CLAUDE_PROJECT_DIR"):
+        return Path(claude_root).resolve() / "images"
+    if pwd := os.environ.get("PWD"):
+        return Path(pwd).resolve() / "images"
+    return Path.cwd().resolve() / "images"
+
+
+def _save_png(raw: bytes, description: str) -> str:
+    save_dir = _resolve_save_dir()
+    save_dir.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", description)[:60].strip("_")
-    (_SAVE_DIR / f"{int(time.time() * 1000)}_{slug}.png").write_bytes(raw)
+    path = save_dir / f"{int(time.time() * 1000)}_{slug}.png"
+    path.write_bytes(raw)
+    return str(path)
 
 
 def _image(fig: plt.Figure, description: str) -> dict:
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight")
     plt.close(fig)
-    raw = buf.getvalue()
-    _maybe_save_png(raw, description)
-    return {"type": "image", "data": base64.b64encode(raw).decode(), "mimeType": "image/png", "alt": description}
+    path = _save_png(buf.getvalue(), description)
+    return {"type": "text", "text": path}
 
 
 def _lambdify_expr(expr_str: str, var_name: str):
@@ -65,7 +81,7 @@ def plot_function(
     x_max: float = 10.0,
     labels: Optional[list[str]] = None,
 ) -> dict:
-    """Plot one or more real functions on an interval. Returns an image.
+    """Plot one or more real functions on an interval. Saves a PNG to <project>/images/ and returns the file path.
     Example: expressions=['sin(x)', 'cos(x)'], x_min=-6.28, x_max=6.28"""
     x = np.linspace(x_min, x_max, 800)
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -99,7 +115,7 @@ def plot_parametric(
     t_max: float = 6.2832,
     z_expr: str = "",
 ) -> dict:
-    """Plot a parametric curve in 2D or 3D. Returns an image.
+    """Plot a parametric curve in 2D or 3D. Saves a PNG to <project>/images/ and returns the file path.
     Example: x_expr='cos(t)', y_expr='sin(t)' draws a unit circle.
     For 3D: also set z_expr='t'"""
     t = np.linspace(t_min, t_max, 1000)
@@ -138,7 +154,7 @@ def plot_surface(
     y_min: float = -5.0,
     y_max: float = 5.0,
 ) -> dict:
-    """Plot a 3D surface z = f(x, y). Returns an image.
+    """Plot a 3D surface z = f(x, y). Saves a PNG to <project>/images/ and returns the file path.
     Example: expression='sin(sqrt(x**2 + y**2))'"""
     from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
     import sympy
@@ -176,7 +192,7 @@ def draw_graph(
     highlight_edges: Optional[list[list[str]]] = None,
     layout: str = "spring",
 ) -> dict:
-    """Draw a graph from a list of [source, target] edges. Returns an image.
+    """Draw a graph from a list of [source, target] edges. Saves a PNG to <project>/images/ and returns the file path.
     layout: 'spring' (default), 'circular', 'shell', 'spectral', 'kamada_kawai'.
     Example: edges=[['A','B'],['B','C'],['A','C']], directed=False"""
     G = nx.DiGraph() if directed else nx.Graph()
@@ -231,7 +247,7 @@ def draw_poset(
     relations: list[list[str]],
     labels: Optional[dict[str, str]] = None,
 ) -> dict:
-    """Draw a Hasse diagram of a finite poset from its cover relations. Returns an image.
+    """Draw a Hasse diagram of a finite poset from its cover relations. Saves a PNG to <project>/images/ and returns the file path.
     relations: list of [smaller, larger] cover pairs (not all comparable pairs, just covers).
     Example: relations=[['1','2'],['1','3'],['2','6'],['3','6']] (divisibility on {1,2,3,6})"""
     G = nx.DiGraph()
@@ -277,7 +293,7 @@ def draw_poset(
 
 @mcp.tool()
 def draw_simplicial_complex(facets: list[list[str]]) -> dict:
-    """Draw a 2D simplicial complex from its maximal faces (facets). Returns an image.
+    """Draw a 2D simplicial complex from its maximal faces (facets). Saves a PNG to <project>/images/ and returns the file path.
     Supports 0-simplices (vertices), 1-simplices (edges), 2-simplices (triangles).
     Example: facets=[['a','b','c'],['b','c','d'],['d','e']]"""
     # Collect all sub-simplices
@@ -346,7 +362,7 @@ def draw_simplicial_complex(facets: list[list[str]]) -> dict:
 
 @mcp.tool()
 def render_latex(formula: str, fontsize: int = 24, dpi: int = 200) -> dict:
-    """Render a LaTeX math formula to a PNG image. Returns an image.
+    """Render a LaTeX math formula to a PNG image. Saves a PNG to <project>/images/ and returns the file path.
     Uses matplotlib's mathtext renderer — supports most standard LaTeX math commands.
     Do NOT include $...$ delimiters; pass the formula directly.
     Example: formula=r'\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}'"""
@@ -375,7 +391,7 @@ def draw_matrix(
     col_labels: Optional[list[str]] = None,
     highlight_cells: Optional[list[list[int]]] = None,
 ) -> dict:
-    """Render a matrix as a formatted image. Returns an image.
+    """Render a matrix as a formatted image. Saves a PNG to <project>/images/ and returns the file path.
     highlight_cells: list of [row_index, col_index] pairs (0-indexed) to highlight.
     Example: rows=[['1','0','0'],['0','1','0'],['0','0','1']] (3x3 identity)"""
     n_rows = len(rows)
@@ -416,6 +432,294 @@ def draw_matrix(
 
     ax.set_title(f"{n_rows}×{n_cols} matrix")
     return _image(fig, f"{n_rows}x{n_cols} matrix")
+
+
+@mcp.tool()
+def plot_cobweb(
+    f_expr: str,
+    x0: float,
+    n_iter: int = 30,
+    x_min: float = -2.0,
+    x_max: float = 2.0,
+    variable: str = "x",
+) -> dict:
+    """Cobweb plot of the iterated 1D map x_(n+1) = f(x_n). Saves a PNG to <project>/images/ and returns the file path.
+    Plots y=f(x) and y=x on [x_min, x_max], then draws the staircase orbit starting at x0.
+    Useful for visualizing fixed points, attractors, and periodic cycles of an iteration.
+    Example: f_expr='cos(x)', x0=0.5, n_iter=40 (Dottie number ~0.739)"""
+    f = _lambdify_expr(f_expr, variable)
+    xs = np.linspace(x_min, x_max, 800)
+    ys = f(xs)
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.plot(xs, ys, color="#3498db", linewidth=2, label=f"y = {f_expr}")
+    ax.plot([x_min, x_max], [x_min, x_max], color="#7f8c8d", linewidth=1.2, linestyle="--", label="y = x")
+
+    x = float(x0)
+    orbit_x = [x]
+    orbit_y = [0.0]
+    for _ in range(int(n_iter)):
+        try:
+            y = float(f(x))
+        except Exception:
+            break
+        if not np.isfinite(y):
+            break
+        orbit_x.extend([x, y])
+        orbit_y.extend([y, y])
+        x = y
+
+    ax.plot(orbit_x, orbit_y, color="#e74c3c", linewidth=1.4, alpha=0.85)
+    ax.scatter([x0], [0.0], color="#e74c3c", zorder=5, s=30, label=f"{variable}_0 = {x0}")
+
+    ax.set_xlabel(variable)
+    ax.set_ylabel(f"f({variable})")
+    ax.set_title(f"Cobweb of {variable}_(n+1) = {f_expr}")
+    ax.legend(loc="best", fontsize=9)
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(x_min, x_max)
+    return _image(fig, f"Cobweb of {f_expr}")
+
+
+@mcp.tool()
+def plot_partial_sums(
+    term_expr: str,
+    n_max: int = 200,
+    index: str = "n",
+    start_index: int = 1,
+    log_y: bool = False,
+) -> dict:
+    """Plot partial sums S_N = sum_{n=start_index}^N a_n versus N. Saves a PNG to <project>/images/ and returns the file path.
+    Useful for diagnosing series convergence/divergence and visualizing the rate of convergence
+    (set log_y=True to read off the asymptotic rate).
+    Example: term_expr='1/n**2', n_max=300 (converges to π²/6 ≈ 1.6449)"""
+    a = _lambdify_expr(term_expr, index)
+    Ns = np.arange(int(start_index), int(start_index) + int(n_max))
+    try:
+        terms = np.asarray(a(Ns), dtype=float)
+    except Exception as e:
+        return {"type": "text", "text": f"Error evaluating term: {e}"}
+    sums = np.cumsum(terms)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(Ns, sums, color="#2980b9", linewidth=1.8)
+    step = max(1, len(Ns) // 40)
+    ax.scatter(Ns[::step], sums[::step], color="#2980b9", s=14, alpha=0.7)
+    ax.set_xlabel("N")
+    ax.set_ylabel("S_N")
+    if log_y:
+        ax.set_yscale("symlog")
+    ax.grid(True, alpha=0.3)
+    ax.axhline(0, color="black", linewidth=0.5, linestyle="--")
+    final = sums[-1] if len(sums) else float("nan")
+    ax.set_title(f"Partial sums of a_{index} = {term_expr}, S_{Ns[-1] if len(Ns) else 0} ≈ {final:.6g}")
+    return _image(fig, f"Partial sums of {term_expr}")
+
+
+@mcp.tool()
+def plot_phase_portrait(
+    dx_expr: str,
+    dy_expr: str,
+    x_min: float = -3.0,
+    x_max: float = 3.0,
+    y_min: float = -3.0,
+    y_max: float = 3.0,
+    trajectories: Optional[list[list[float]]] = None,
+    t_max: float = 10.0,
+    grid_density: int = 20,
+) -> dict:
+    """Phase portrait of an autonomous 2D ODE system dx/dt = F(x,y), dy/dt = G(x,y).
+    Draws a normalized direction field (color = speed) and overlays trajectories from any
+    initial points provided. Saves a PNG to <project>/images/ and returns the file path.
+    Example: dx_expr='y', dy_expr='-sin(x) - 0.1*y', trajectories=[[0,1],[2,0]] (damped pendulum)"""
+    import sympy
+    from scipy.integrate import solve_ivp
+
+    ns = {name: getattr(sympy, name) for name in dir(sympy) if not name.startswith("_")}
+    sx, sy = Symbol("x"), Symbol("y")
+    ns.update({"x": sx, "y": sy})
+    try:
+        dx_e = parse_expr(dx_expr, local_dict=ns, transformations=_TRANSFORMATIONS)
+        dy_e = parse_expr(dy_expr, local_dict=ns, transformations=_TRANSFORMATIONS)
+    except Exception as e:
+        return {"type": "text", "text": f"Error parsing field: {e}"}
+    F = lambdify((sx, sy), dx_e, modules=["numpy"])
+    G = lambdify((sx, sy), dy_e, modules=["numpy"])
+
+    xs = np.linspace(x_min, x_max, int(grid_density))
+    ys = np.linspace(y_min, y_max, int(grid_density))
+    X, Y = np.meshgrid(xs, ys)
+    try:
+        U = np.broadcast_to(np.asarray(F(X, Y), dtype=float), X.shape).copy()
+        V = np.broadcast_to(np.asarray(G(X, Y), dtype=float), X.shape).copy()
+    except Exception as e:
+        return {"type": "text", "text": f"Error evaluating field: {e}"}
+    M = np.hypot(U, V)
+    Mn = np.where(M == 0, 1.0, M)
+    Un, Vn = U / Mn, V / Mn
+
+    fig, ax = plt.subplots(figsize=(8, 7))
+    ax.quiver(X, Y, Un, Vn, M, cmap="viridis", pivot="middle", scale=30, width=0.003, alpha=0.85)
+
+    if trajectories:
+        def rhs(_t, z):
+            return [float(F(z[0], z[1])), float(G(z[0], z[1]))]
+        for ic in trajectories:
+            if len(ic) < 2:
+                continue
+            try:
+                sol = solve_ivp(rhs, (0, float(t_max)), [float(ic[0]), float(ic[1])],
+                                max_step=0.05, rtol=1e-6, atol=1e-9)
+                ax.plot(sol.y[0], sol.y[1], color="#e74c3c", linewidth=1.6)
+                ax.scatter([sol.y[0][0]], [sol.y[1][0]], color="#e74c3c", s=30, zorder=5)
+            except Exception:
+                pass
+
+    ax.set_xlabel("x"); ax.set_ylabel("y")
+    ax.set_xlim(x_min, x_max); ax.set_ylim(y_min, y_max)
+    ax.set_title(f"dx/dt = {dx_expr},  dy/dt = {dy_expr}")
+    ax.grid(True, alpha=0.3)
+    return _image(fig, f"Phase portrait dx={dx_expr} dy={dy_expr}")
+
+
+@mcp.tool()
+def plot_implicit(
+    expression: str,
+    x_min: float = -3.0,
+    x_max: float = 3.0,
+    y_min: float = -3.0,
+    y_max: float = 3.0,
+    variable_x: str = "x",
+    variable_y: str = "y",
+) -> dict:
+    """Plot the zero set {(x,y) : f(x,y) = 0} of a 2-variable expression. Saves a PNG to <project>/images/ and returns the file path.
+    To plot f(x,y) = g(x,y), pass `f(x,y) - g(x,y)` as the expression.
+    Example: expression='x**2 + y**2 - 1' (unit circle); expression='y**2 - x**3 - 1' (cubic)"""
+    import sympy
+    ns = {name: getattr(sympy, name) for name in dir(sympy) if not name.startswith("_")}
+    sx, sy = Symbol(variable_x), Symbol(variable_y)
+    ns.update({variable_x: sx, variable_y: sy})
+    try:
+        expr = parse_expr(expression, local_dict=ns, transformations=_TRANSFORMATIONS)
+    except Exception as e:
+        return {"type": "text", "text": f"Error parsing expression: {e}"}
+    f = lambdify((sx, sy), expr, modules=["numpy"])
+
+    xs = np.linspace(x_min, x_max, 400)
+    ys = np.linspace(y_min, y_max, 400)
+    X, Y = np.meshgrid(xs, ys)
+    try:
+        Z = np.broadcast_to(np.asarray(f(X, Y), dtype=float), X.shape).copy()
+    except Exception as e:
+        return {"type": "text", "text": f"Error evaluating expression: {e}"}
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.contour(X, Y, Z, levels=[0.0], colors=["#2980b9"], linewidths=2)
+    ax.axhline(0, color="black", linewidth=0.5, linestyle="--")
+    ax.axvline(0, color="black", linewidth=0.5, linestyle="--")
+    ax.set_xlabel(variable_x); ax.set_ylabel(variable_y)
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.set_title(f"{expression} = 0")
+    ax.grid(True, alpha=0.3)
+    return _image(fig, f"Implicit curve {expression} = 0")
+
+
+@mcp.tool()
+def plot_region(
+    condition: str,
+    x_min: float = -3.0,
+    x_max: float = 3.0,
+    y_min: float = -3.0,
+    y_max: float = 3.0,
+    variable_x: str = "x",
+    variable_y: str = "y",
+) -> dict:
+    """Shade the region {(x,y) : condition} where `condition` is a Boolean expression.
+    Combine multiple inequalities with & (AND) or | (OR), wrapping each clause in parens.
+    Saves a PNG to <project>/images/ and returns the file path.
+    Example: condition='x**2 + y**2 < 1' (open disk);
+             condition='(x**2 + y**2 < 1) & (y > x)' (half-disk above the diagonal)"""
+    import sympy
+    ns = {name: getattr(sympy, name) for name in dir(sympy) if not name.startswith("_")}
+    sx, sy = Symbol(variable_x), Symbol(variable_y)
+    ns.update({variable_x: sx, variable_y: sy})
+    try:
+        expr = parse_expr(condition, local_dict=ns, transformations=_TRANSFORMATIONS)
+    except Exception as e:
+        return {"type": "text", "text": f"Error parsing condition: {e}"}
+    f = lambdify((sx, sy), expr, modules=["numpy"])
+
+    xs = np.linspace(x_min, x_max, 400)
+    ys = np.linspace(y_min, y_max, 400)
+    X, Y = np.meshgrid(xs, ys)
+    try:
+        raw = f(X, Y)
+        mask = np.broadcast_to(np.asarray(raw, dtype=float), X.shape).copy()
+    except Exception as e:
+        return {"type": "text", "text": f"Error evaluating condition: {e}"}
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.contourf(X, Y, mask, levels=[0.5, 1.5], colors=["#3498db"], alpha=0.5)
+    ax.contour(X, Y, mask, levels=[0.5], colors=["#2c3e50"], linewidths=1.2)
+    ax.axhline(0, color="black", linewidth=0.5, linestyle="--")
+    ax.axvline(0, color="black", linewidth=0.5, linestyle="--")
+    ax.set_xlabel(variable_x); ax.set_ylabel(variable_y)
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.set_xlim(x_min, x_max); ax.set_ylim(y_min, y_max)
+    ax.set_title(condition)
+    ax.grid(True, alpha=0.3)
+    return _image(fig, f"Region {condition}")
+
+
+@mcp.tool()
+def plot_integrand_with_shading(
+    expression: str,
+    a: float,
+    b: float,
+    x_min: Optional[float] = None,
+    x_max: Optional[float] = None,
+    variable: str = "x",
+) -> dict:
+    """Plot a function and shade the area under the curve between x=a and x=b.
+    Computes the numerical value of int_a^b f(x) dx (via scipy.integrate.quad) and shows
+    it in the title. Useful for visualizing integral problems and sanity-checking values.
+    Saves a PNG to <project>/images/ and returns the file path.
+    Example: expression='exp(-x**2)', a=-2, b=2 (truncated Gaussian)"""
+    from scipy.integrate import quad
+
+    span = abs(b - a) if b != a else 1.0
+    if x_min is None:
+        x_min = min(a, b) - 0.2 * span - 0.1
+    if x_max is None:
+        x_max = max(a, b) + 0.2 * span + 0.1
+
+    f = _lambdify_expr(expression, variable)
+
+    xs_full = np.linspace(x_min, x_max, 800)
+    ys_full = f(xs_full)
+    ys_full = np.where(np.abs(ys_full) > 1e6, np.nan, ys_full)
+
+    xs_fill = np.linspace(min(a, b), max(a, b), 400)
+    ys_fill = f(xs_fill)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(xs_full, ys_full, color="#2980b9", linewidth=2, label=f"y = {expression}")
+    ax.fill_between(xs_fill, 0, ys_fill, color="#3498db", alpha=0.35)
+    ax.axvline(a, color="#7f8c8d", linewidth=1, linestyle="--")
+    ax.axvline(b, color="#7f8c8d", linewidth=1, linestyle="--")
+    ax.axhline(0, color="black", linewidth=0.5)
+
+    try:
+        val, _err = quad(lambda t: float(f(t)), a, b, limit=200)
+        title = f"∫ from {a} to {b} of {expression}  ≈  {val:.6g}"
+    except Exception:
+        title = f"Integral of {expression} from {a} to {b}"
+
+    ax.set_xlabel(variable)
+    ax.legend(loc="best", fontsize=9)
+    ax.grid(True, alpha=0.3)
+    ax.set_title(title)
+    return _image(fig, f"Integrand {expression} on [{a},{b}]")
 
 
 def main() -> None:
