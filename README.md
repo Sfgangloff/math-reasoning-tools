@@ -93,7 +93,13 @@ See [`docs/tools.md`](docs/tools.md) for the per-tool reference.
 
 ## Original Servers
 
-Five servers covering symbolic computation, visualization, search, diagram rendering, and proof navigation. See [docs/tools.md](docs/tools.md) for the full tool reference (32 tools total, all implemented).
+Five servers covering symbolic computation, visualization, search, diagram rendering, and proof navigation. See [docs/tools.md](docs/tools.md) for the full tool reference (47 tools total, all implemented):
+
+- **math-compute** (11): SymPy + Z3 + OEIS + `conjecture_test` / `find_counterexample` for stress-testing claims
+- **math-viz** (14): plots, graphs, posets, simplicial complexes, LaTeX rendering, phase portraits, implicit/region/integrand plots
+- **math-search** (13): ArXiv search + paper-source/paper-text fetching, definition/citation/outline extraction, MathWorld/Wikipedia/zbMATH lookups, Loogle HTTP fallback
+- **commutative-diagrams** (3): tikz-cd / Quiver / DSL → PNG
+- **proof-explorer** (6): `sorry_map`, `tactic_history`, `lean_minimal_hypotheses`, plus `proof_tree`/`goal_explain`/`hypothesis_graph` (lean-lsp-mcp wrappers)
 
 ## Catalog
 

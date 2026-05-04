@@ -66,14 +66,14 @@ str  # plain text or Markdown
 **Visual output** (plots, diagrams, rendered formulas):
 ```python
 {
-    "image": str,        # base64-encoded PNG
-    "alt": str,          # plain-text description (accessibility + fallback)
-    "width": int,
-    "height": int
+    "type": "text",
+    "text": "/abs/path/to/image.png"   # PNG written to <project>/images/
 }
 ```
 
-Claude Code renders dict responses with an `"image"` key as inline images.
+Claude Code reads images on demand from the path. The image directory is
+resolved as: `MATH_TOOLS_IMAGE_DIR` → `CLAUDE_PROJECT_DIR/images` →
+`$PWD/images` → `cwd/images`.
 
 ## Dependency map
 
