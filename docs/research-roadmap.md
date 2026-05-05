@@ -46,7 +46,46 @@ on Lean LSP for unification) and would compose `lean_hammer_premise`
 with a small forward-chaining loop. Worth scoping as a separate
 sub-server if the search infrastructure grows.
 
-## 2. — *(reserved for the next entry)*
+## 2. `arxiv_extract_math_matching` — literature / extraction
+
+**Goal.** Given an arXiv paper and a natural-language description of
+what the agent is looking for (e.g. "the main convergence theorem for
+the Galerkin scheme", "definitions related to entropy of subshifts"),
+return only the theorems / definitions / lemmas from that paper that
+match the description, ranked by relevance.
+
+**Inputs.**
+- `arxiv_id` (string).
+- `query` (string): natural-language description of the target.
+- Optional `kinds` (subset of theorem/lemma/proposition/corollary/
+  definition/remark/example), defaulting to theorem/lemma/proposition/
+  definition.
+- Optional `top_k` (int): number of matches to return.
+
+**Outputs.** A ranked list of matched environments, each with:
+- kind, optional `[name]`, `\label{...}`, source filename,
+- the raw LaTeX body (as in `arxiv_extract_math`),
+- a relevance score and a one-line explanation of why it matched.
+
+**What it does.**
+1. Call `arxiv_extract_math` to dump every named math environment
+   from the paper's LaTeX source (with the requested `kinds`).
+2. Embed each body and the `query` (or use a lightweight LLM rerank)
+   and score them.
+3. Return the top-`k` matches with scores and brief justifications.
+
+This collapses the current three-step pattern (`arxiv_search` →
+`arxiv_outline` → `arxiv_extract_math` followed by manual filtering
+in the agent's context) into a single call, which matters when the
+extraction is large and we don't want all environments loaded into
+the reasoning state.
+
+**Status.** Not implemented. Natural fit for the `math-search` server
+alongside the existing `arxiv_extract_*` family. Should reuse the
+LaTeX-source path already used by `arxiv_extract_math` rather than
+re-fetching the paper.
+
+## 3. — *(reserved for the next entry)*
 
 Append new actions here. Each entry should follow the schema of §1:
 *goal, inputs, outputs, what it does, why it earns a slot, status*.
