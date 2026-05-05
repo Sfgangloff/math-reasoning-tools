@@ -1,3 +1,6 @@
 [submodule "external/lean-lsp-mcp"]
 	path = external/lean-lsp-mcp
 	url = https://github.com/oOo0oOo/lean-lsp-mcp.git
+[submodule "external/meta-tools"]
+	path = external/meta-tools
+	url = https://github.com/Sfgangloff/meta-tools.git
