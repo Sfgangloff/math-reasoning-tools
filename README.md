@@ -135,6 +135,12 @@ uv run fastmcp dev src/<package>/server.py
 
 See [docs/architecture.md](docs/architecture.md), [docs/tool-design-principles.md](docs/tool-design-principles.md), and [docs/contributing.md](docs/contributing.md).
 
+For the theoretical framing and the list of planned actions, see
+[docs/research-model.md](docs/research-model.md) (state-machine model;
+how current tools map onto typed research actions) and
+[docs/research-roadmap.md](docs/research-roadmap.md) (running list of
+research actions we plan to expose as tools).
+
 ## License
 
 MIT
