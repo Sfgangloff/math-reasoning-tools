@@ -85,7 +85,47 @@ alongside the existing `arxiv_extract_*` family. Should reuse the
 LaTeX-source path already used by `arxiv_extract_math` rather than
 re-fetching the paper.
 
-## 3. — *(reserved for the next entry)*
+## 3. `paper_citation_count` — literature / bibliography
+
+**Goal.** Given a paper (arXiv id, DOI, or title), return its citation
+count and a small set of related impact signals, so the agent can
+identify which works are most influential in a field while doing
+bibliography work.
+
+**Inputs.**
+- `paper` (string): arXiv id, DOI, or title.
+- Optional `source` (`"openalex" | "semantic_scholar" | "crossref"`):
+  which backend to query; defaults to whichever resolves the id first.
+
+**Outputs.** A small record:
+- canonical title, authors, year, venue,
+- citation count,
+- optional secondary signals (citations-per-year, h-index of venue,
+  number of references, list of top-cited citing papers if cheap).
+
+**What it does.**
+1. Resolve the input to a canonical id (DOI preferred, arXiv id as
+   fallback) via the chosen backend's metadata endpoint.
+2. Query the backend for citation count and basic metadata.
+3. Return a compact summary; do not load the full citing-paper list
+   into context unless explicitly requested.
+
+Backend choice matters: Google Scholar is the most familiar source but
+has no official API and aggressively blocks scrapers, so the
+implementation should default to **OpenAlex** or **Semantic Scholar**
+(both free, JSON APIs, comparable coverage for math) and only mention
+Scholar in the docstring as the conceptual analogue. Crossref gives
+reference counts but not citation counts.
+
+A natural extension is `paper_rank_by_citations(query, top_k)` —
+combine `arxiv_search` results with this tool to surface the most-cited
+papers matching a topic in one call.
+
+**Status.** Not implemented. Fits in the `math-search` server next to
+`arxiv_search` / `arxiv_extract_citations`. Should be a thin wrapper
+over OpenAlex's `/works` endpoint to start.
+
+## 4. — *(reserved for the next entry)*
 
 Append new actions here. Each entry should follow the schema of §1:
 *goal, inputs, outputs, what it does, why it earns a slot, status*.
