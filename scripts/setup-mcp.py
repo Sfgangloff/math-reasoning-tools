@@ -23,6 +23,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CLAUDE_JSON = Path.home() / ".claude.json"
+CLAUDE_MD = Path.home() / ".claude" / "CLAUDE.md"
+ROUTING_MD = REPO_ROOT / "docs" / "tool-routing.md"
+ROUTING_BEGIN = "<!-- BEGIN math-reasoning-tools (managed by setup-mcp.py) -->"
+ROUTING_END = "<!-- END math-reasoning-tools -->"
 SCAN_DIRS = [REPO_ROOT / "servers", REPO_ROOT / "external"]
 
 # binary name -> human label, what needs it, install commands per package manager
@@ -195,9 +199,50 @@ def check_system_deps(*, assume_yes: bool) -> None:
                 print(f"  {d['label']}: install ran but '{d['binary']}' not on PATH yet — restart your shell.")
 
 
+def install_global_routing() -> None:
+    """Inject (or update) a managed @-import of docs/tool-routing.md into ~/.claude/CLAUDE.md.
+
+    The block is delimited by BEGIN/END markers so re-running setup-mcp.py replaces
+    the existing block in place (handy if the repo moves) without disturbing any
+    other content the user keeps in their global CLAUDE.md.
+    """
+    if not ROUTING_MD.exists():
+        print(f"\nGlobal routing: {ROUTING_MD} not found — skipping.")
+        return
+
+    block = (
+        f"{ROUTING_BEGIN}\n"
+        f"@{ROUTING_MD}\n"
+        f"{ROUTING_END}\n"
+    )
+
+    CLAUDE_MD.parent.mkdir(parents=True, exist_ok=True)
+    existing = CLAUDE_MD.read_text() if CLAUDE_MD.exists() else ""
+
+    if ROUTING_BEGIN in existing and ROUTING_END in existing:
+        start = existing.index(ROUTING_BEGIN)
+        end = existing.index(ROUTING_END) + len(ROUTING_END)
+        # also consume a single trailing newline if present
+        if end < len(existing) and existing[end] == "\n":
+            end += 1
+        new_content = existing[:start] + block + existing[end:]
+        action = "updated"
+    else:
+        sep = "" if existing == "" or existing.endswith("\n") else "\n"
+        new_content = existing + sep + ("\n" if existing else "") + block
+        action = "added"
+
+    if new_content != existing:
+        CLAUDE_MD.write_text(new_content)
+        print(f"\nGlobal routing: {action} import in {CLAUDE_MD}")
+    else:
+        print(f"\nGlobal routing: already up to date in {CLAUDE_MD}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skip-deps", action="store_true", help="don't check system dependencies")
+    parser.add_argument("--skip-routing", action="store_true", help="don't update ~/.claude/CLAUDE.md routing import")
     parser.add_argument("--yes", "-y", action="store_true", help="auto-confirm dependency install prompts")
     args = parser.parse_args()
 
@@ -244,6 +289,9 @@ def main():
     for key in existing_servers:
         tag = "[new]" if key in added else "[updated]" if key in updated else "[existing]"
         print(f"  {tag:12} {key}")
+
+    if not args.skip_routing:
+        install_global_routing()
 
     if not args.skip_deps:
         check_system_deps(assume_yes=args.yes)
