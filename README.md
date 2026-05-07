@@ -2,6 +2,10 @@
 
 MCP tools for theorem proving and mathematical reasoning with Claude Code.
 
+<p align="center">
+  <img src="logo.png" width="300"/>
+</p>
+
 **Two roles:**
 1. **Curated catalog** — assessed references to every existing MCP tool relevant to formal proof and mathematical reasoning.
 2. **Original servers** — new MCP servers filling the gaps: human-style intuition tools (visualization, example computation, diagram rendering, search) that pair with Lean4.
