@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from fastmcp import FastMCP
+from fastmcp.utilities.types import Image
 from sympy import Symbol, latex, sympify
 from sympy.parsing.sympy_parser import (
     implicit_multiplication_application,
@@ -55,12 +56,19 @@ def _save_png(raw: bytes, description: str) -> str:
     return str(path)
 
 
-def _image(fig: plt.Figure, description: str) -> dict:
+def _image(fig: plt.Figure, description: str) -> list[Image | str]:
+    """Render `fig` as PNG, save a copy to disk, and return inline content.
+
+    Returns a list of MCP content blocks: an inline image (so the model actually
+    sees the rendered figure) followed by a text block with the saved file path
+    (so it can be referenced later or re-opened by the user).
+    """
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight")
     plt.close(fig)
-    path = _save_png(buf.getvalue(), description)
-    return {"type": "text", "text": path}
+    raw = buf.getvalue()
+    path = _save_png(raw, description)
+    return [Image(data=raw, format="png"), f"Saved to {path}"]
 
 
 def _lambdify_expr(expr_str: str, var_name: str):
@@ -80,8 +88,10 @@ def plot_function(
     x_min: float = -10.0,
     x_max: float = 10.0,
     labels: Optional[list[str]] = None,
-) -> dict:
-    """Plot one or more real functions on an interval. Saves a PNG to <project>/images/ and returns the file path.
+) -> list[Image | str]:
+    """Visualize one or more 1D real functions on an interval. Reach for this whenever you want to
+    see a function's shape, locate roots/extrema/asymptotes, compare candidate formulas, or sanity-check
+    a symbolic result against a picture. Returns the rendered PNG inline.
     Example: expressions=['sin(x)', 'cos(x)'], x_min=-6.28, x_max=6.28"""
     x = np.linspace(x_min, x_max, 800)
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -114,10 +124,11 @@ def plot_parametric(
     t_min: float = 0.0,
     t_max: float = 6.2832,
     z_expr: str = "",
-) -> dict:
-    """Plot a parametric curve in 2D or 3D. Saves a PNG to <project>/images/ and returns the file path.
-    Example: x_expr='cos(t)', y_expr='sin(t)' draws a unit circle.
-    For 3D: also set z_expr='t'"""
+) -> list[Image | str]:
+    """Visualize a parametric curve in 2D or 3D. Reach for this for trajectories, orbits, knots,
+    Lissajous-style figures, or any curve where x and y (and optionally z) depend on a parameter.
+    Returns the rendered PNG inline.
+    Example: x_expr='cos(t)', y_expr='sin(t)' draws a unit circle. For 3D: also set z_expr='t'."""
     t = np.linspace(t_min, t_max, 1000)
     fx = _lambdify_expr(x_expr, parameter)
     fy = _lambdify_expr(y_expr, parameter)
@@ -153,8 +164,10 @@ def plot_surface(
     x_max: float = 5.0,
     y_min: float = -5.0,
     y_max: float = 5.0,
-) -> dict:
-    """Plot a 3D surface z = f(x, y). Saves a PNG to <project>/images/ and returns the file path.
+) -> list[Image | str]:
+    """Visualize a 3D surface z = f(x, y). Reach for this to inspect saddle points, basins, level
+    structure, or to compare two surfaces qualitatively when text alone won't communicate the shape.
+    Returns the rendered PNG inline.
     Example: expression='sin(sqrt(x**2 + y**2))'"""
     from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
     import sympy
@@ -172,7 +185,7 @@ def plot_surface(
         Z = f(X, Y).astype(float)
         Z = np.where(np.abs(Z) > 1e6, np.nan, Z)
     except Exception as e:
-        return {"type": "text", "text": f"Error evaluating surface: {e}"}
+        return [f"Error evaluating surface: {e}"]
 
     fig = plt.figure(figsize=(9, 7))
     ax = fig.add_subplot(111, projection="3d")
@@ -191,8 +204,10 @@ def draw_graph(
     highlight_nodes: Optional[list[str]] = None,
     highlight_edges: Optional[list[list[str]]] = None,
     layout: str = "spring",
-) -> dict:
-    """Draw a graph from a list of [source, target] edges. Saves a PNG to <project>/images/ and returns the file path.
+) -> list[Image | str]:
+    """Visualize a small graph from a list of [source, target] edges. Reach for this whenever you
+    discuss graph algorithms, network structure, automata, or any graph the reader needs to picture
+    rather than parse from a textual edge list. Returns the rendered PNG inline.
     layout: 'spring' (default), 'circular', 'shell', 'spectral', 'kamada_kawai'.
     Example: edges=[['A','B'],['B','C'],['A','C']], directed=False"""
     G = nx.DiGraph() if directed else nx.Graph()
@@ -246,9 +261,11 @@ def draw_graph(
 def draw_poset(
     relations: list[list[str]],
     labels: Optional[dict[str, str]] = None,
-) -> dict:
-    """Draw a Hasse diagram of a finite poset from its cover relations. Saves a PNG to <project>/images/ and returns the file path.
-    relations: list of [smaller, larger] cover pairs (not all comparable pairs, just covers).
+) -> list[Image | str]:
+    """Visualize the Hasse diagram of a finite poset. Reach for this whenever discussing partial
+    orders, divisibility, lattices, subgroup/subspace inclusion, or anything where readers benefit
+    from seeing elements stacked by level with covers drawn explicitly. Returns the rendered PNG inline.
+    relations: list of [smaller, larger] cover pairs (covers only, not all comparable pairs).
     Example: relations=[['1','2'],['1','3'],['2','6'],['3','6']] (divisibility on {1,2,3,6})"""
     G = nx.DiGraph()
     for rel in relations:
@@ -292,9 +309,11 @@ def draw_poset(
 
 
 @mcp.tool()
-def draw_simplicial_complex(facets: list[list[str]]) -> dict:
-    """Draw a 2D simplicial complex from its maximal faces (facets). Saves a PNG to <project>/images/ and returns the file path.
-    Supports 0-simplices (vertices), 1-simplices (edges), 2-simplices (triangles).
+def draw_simplicial_complex(facets: list[list[str]]) -> list[Image | str]:
+    """Visualize a 2D simplicial complex from its maximal faces (facets). Reach for this for
+    examples in topology / algebraic topology — illustrating triangulations, simplicial homology
+    computations, nerve constructions, or any small abstract complex you want pictured. Returns the
+    rendered PNG inline. Supports 0-simplices (vertices), 1-simplices (edges), 2-simplices (triangles).
     Example: facets=[['a','b','c'],['b','c','d'],['d','e']]"""
     # Collect all sub-simplices
     vertices: set[str] = set()
@@ -361,10 +380,12 @@ def draw_simplicial_complex(facets: list[list[str]]) -> dict:
 
 
 @mcp.tool()
-def render_latex(formula: str, fontsize: int = 24, dpi: int = 200) -> dict:
-    """Render a LaTeX math formula to a PNG image. Saves a PNG to <project>/images/ and returns the file path.
-    Uses matplotlib's mathtext renderer — supports most standard LaTeX math commands.
-    Do NOT include $...$ delimiters; pass the formula directly.
+def render_latex(formula: str, fontsize: int = 24, dpi: int = 200) -> list[Image | str]:
+    """Render a LaTeX math formula as an image. Reach for this whenever you'd otherwise paste a
+    long or visually-dense formula into chat (theorem statements, derivations, multi-line equations,
+    expressions with many subscripts/sub-expressions) — the rendered version is far easier to read
+    than raw LaTeX in monospace. Returns the rendered PNG inline. Uses matplotlib's mathtext (no
+    LaTeX install needed). Do NOT include $...$ delimiters; pass the formula directly.
     Example: formula=r'\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}'"""
     fig, ax = plt.subplots(figsize=(10, 1.5))
     ax.axis("off")
@@ -378,7 +399,7 @@ def render_latex(formula: str, fontsize: int = 24, dpi: int = 200) -> dict:
         )
     except Exception as e:
         plt.close(fig)
-        return {"type": "text", "text": f"Could not render formula: {e}\nFormula: {formula}"}
+        return [f"Could not render formula: {e}\nFormula: {formula}"]
 
     fig.tight_layout(pad=0.1)
     return _image(fig, f"LaTeX formula: {formula[:80]}")
@@ -390,8 +411,11 @@ def draw_matrix(
     row_labels: Optional[list[str]] = None,
     col_labels: Optional[list[str]] = None,
     highlight_cells: Optional[list[list[int]]] = None,
-) -> dict:
-    """Render a matrix as a formatted image. Saves a PNG to <project>/images/ and returns the file path.
+) -> list[Image | str]:
+    """Render a matrix as a formatted image with optional row/column labels and cell highlights.
+    Reach for this to show pivots in row reduction, block structure, sparsity patterns, or to walk
+    through Gaussian elimination / matrix-multiplication steps with the relevant cells emphasized.
+    Returns the rendered PNG inline.
     highlight_cells: list of [row_index, col_index] pairs (0-indexed) to highlight.
     Example: rows=[['1','0','0'],['0','1','0'],['0','0','1']] (3x3 identity)"""
     n_rows = len(rows)
@@ -442,10 +466,12 @@ def plot_cobweb(
     x_min: float = -2.0,
     x_max: float = 2.0,
     variable: str = "x",
-) -> dict:
-    """Cobweb plot of the iterated 1D map x_(n+1) = f(x_n). Saves a PNG to <project>/images/ and returns the file path.
-    Plots y=f(x) and y=x on [x_min, x_max], then draws the staircase orbit starting at x0.
-    Useful for visualizing fixed points, attractors, and periodic cycles of an iteration.
+) -> list[Image | str]:
+    """Cobweb plot of the iterated 1D map x_(n+1) = f(x_n). Reach for this whenever you need to see
+    fixed points, attractors, periodic cycles, or the rate of convergence/divergence of an iteration
+    — e.g. analyzing logistic-map dynamics, Newton's method, or fixed-point iteration. Plots y=f(x)
+    and y=x on [x_min, x_max] then draws the staircase orbit starting at x0. Returns the rendered
+    PNG inline.
     Example: f_expr='cos(x)', x0=0.5, n_iter=40 (Dottie number ~0.739)"""
     f = _lambdify_expr(f_expr, variable)
     xs = np.linspace(x_min, x_max, 800)
@@ -488,17 +514,18 @@ def plot_partial_sums(
     index: str = "n",
     start_index: int = 1,
     log_y: bool = False,
-) -> dict:
-    """Plot partial sums S_N = sum_{n=start_index}^N a_n versus N. Saves a PNG to <project>/images/ and returns the file path.
-    Useful for diagnosing series convergence/divergence and visualizing the rate of convergence
-    (set log_y=True to read off the asymptotic rate).
+) -> list[Image | str]:
+    """Plot partial sums S_N = sum_{n=start_index}^N a_n versus N. Reach for this whenever you
+    discuss series convergence/divergence — it's the fastest way to see if a series is converging,
+    estimate the limit, or read off the rate (set log_y=True for the asymptotic rate). Returns the
+    rendered PNG inline.
     Example: term_expr='1/n**2', n_max=300 (converges to π²/6 ≈ 1.6449)"""
     a = _lambdify_expr(term_expr, index)
     Ns = np.arange(int(start_index), int(start_index) + int(n_max))
     try:
         terms = np.asarray(a(Ns), dtype=float)
     except Exception as e:
-        return {"type": "text", "text": f"Error evaluating term: {e}"}
+        return [f"Error evaluating term: {e}"]
     sums = np.cumsum(terms)
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -527,10 +554,11 @@ def plot_phase_portrait(
     trajectories: Optional[list[list[float]]] = None,
     t_max: float = 10.0,
     grid_density: int = 20,
-) -> dict:
-    """Phase portrait of an autonomous 2D ODE system dx/dt = F(x,y), dy/dt = G(x,y).
-    Draws a normalized direction field (color = speed) and overlays trajectories from any
-    initial points provided. Saves a PNG to <project>/images/ and returns the file path.
+) -> list[Image | str]:
+    """Phase portrait of an autonomous 2D ODE dx/dt = F(x,y), dy/dt = G(x,y). Reach for this to
+    visualize equilibria, limit cycles, separatrices, stability, or qualitative behavior — far more
+    informative than describing a planar dynamical system in words. Draws a normalized direction
+    field (color = speed) plus trajectories from any initial points. Returns the rendered PNG inline.
     Example: dx_expr='y', dy_expr='-sin(x) - 0.1*y', trajectories=[[0,1],[2,0]] (damped pendulum)"""
     import sympy
     from scipy.integrate import solve_ivp
@@ -542,7 +570,7 @@ def plot_phase_portrait(
         dx_e = parse_expr(dx_expr, local_dict=ns, transformations=_TRANSFORMATIONS)
         dy_e = parse_expr(dy_expr, local_dict=ns, transformations=_TRANSFORMATIONS)
     except Exception as e:
-        return {"type": "text", "text": f"Error parsing field: {e}"}
+        return [f"Error parsing field: {e}"]
     F = lambdify((sx, sy), dx_e, modules=["numpy"])
     G = lambdify((sx, sy), dy_e, modules=["numpy"])
 
@@ -553,7 +581,7 @@ def plot_phase_portrait(
         U = np.broadcast_to(np.asarray(F(X, Y), dtype=float), X.shape).copy()
         V = np.broadcast_to(np.asarray(G(X, Y), dtype=float), X.shape).copy()
     except Exception as e:
-        return {"type": "text", "text": f"Error evaluating field: {e}"}
+        return [f"Error evaluating field: {e}"]
     M = np.hypot(U, V)
     Mn = np.where(M == 0, 1.0, M)
     Un, Vn = U / Mn, V / Mn
@@ -591,9 +619,11 @@ def plot_implicit(
     y_max: float = 3.0,
     variable_x: str = "x",
     variable_y: str = "y",
-) -> dict:
-    """Plot the zero set {(x,y) : f(x,y) = 0} of a 2-variable expression. Saves a PNG to <project>/images/ and returns the file path.
-    To plot f(x,y) = g(x,y), pass `f(x,y) - g(x,y)` as the expression.
+) -> list[Image | str]:
+    """Plot the zero set {(x,y) : f(x,y) = 0} of a 2-variable expression. Reach for this for conics,
+    algebraic curves, level curves, or any implicitly-defined planar curve that can't be drawn as a
+    function graph — including curves with self-intersections, multiple components, or singularities.
+    To plot f(x,y) = g(x,y), pass `f(x,y) - g(x,y)`. Returns the rendered PNG inline.
     Example: expression='x**2 + y**2 - 1' (unit circle); expression='y**2 - x**3 - 1' (cubic)"""
     import sympy
     ns = {name: getattr(sympy, name) for name in dir(sympy) if not name.startswith("_")}
@@ -602,7 +632,7 @@ def plot_implicit(
     try:
         expr = parse_expr(expression, local_dict=ns, transformations=_TRANSFORMATIONS)
     except Exception as e:
-        return {"type": "text", "text": f"Error parsing expression: {e}"}
+        return [f"Error parsing expression: {e}"]
     f = lambdify((sx, sy), expr, modules=["numpy"])
 
     xs = np.linspace(x_min, x_max, 400)
@@ -611,7 +641,7 @@ def plot_implicit(
     try:
         Z = np.broadcast_to(np.asarray(f(X, Y), dtype=float), X.shape).copy()
     except Exception as e:
-        return {"type": "text", "text": f"Error evaluating expression: {e}"}
+        return [f"Error evaluating expression: {e}"]
 
     fig, ax = plt.subplots(figsize=(7, 7))
     ax.contour(X, Y, Z, levels=[0.0], colors=["#2980b9"], linewidths=2)
@@ -633,10 +663,11 @@ def plot_region(
     y_max: float = 3.0,
     variable_x: str = "x",
     variable_y: str = "y",
-) -> dict:
-    """Shade the region {(x,y) : condition} where `condition` is a Boolean expression.
-    Combine multiple inequalities with & (AND) or | (OR), wrapping each clause in parens.
-    Saves a PNG to <project>/images/ and returns the file path.
+) -> list[Image | str]:
+    """Shade the planar region {(x,y) : condition} where `condition` is a Boolean expression. Reach
+    for this for inequality regions, feasible sets in linear/convex optimization, domains of
+    integration in double integrals, or any 2D set described by combined inequalities. Combine
+    inequalities with & (AND) or | (OR), wrapping each clause in parens. Returns the rendered PNG inline.
     Example: condition='x**2 + y**2 < 1' (open disk);
              condition='(x**2 + y**2 < 1) & (y > x)' (half-disk above the diagonal)"""
     import sympy
@@ -646,7 +677,7 @@ def plot_region(
     try:
         expr = parse_expr(condition, local_dict=ns, transformations=_TRANSFORMATIONS)
     except Exception as e:
-        return {"type": "text", "text": f"Error parsing condition: {e}"}
+        return [f"Error parsing condition: {e}"]
     f = lambdify((sx, sy), expr, modules=["numpy"])
 
     xs = np.linspace(x_min, x_max, 400)
@@ -656,7 +687,7 @@ def plot_region(
         raw = f(X, Y)
         mask = np.broadcast_to(np.asarray(raw, dtype=float), X.shape).copy()
     except Exception as e:
-        return {"type": "text", "text": f"Error evaluating condition: {e}"}
+        return [f"Error evaluating condition: {e}"]
 
     fig, ax = plt.subplots(figsize=(7, 7))
     ax.contourf(X, Y, mask, levels=[0.5, 1.5], colors=["#3498db"], alpha=0.5)
@@ -679,11 +710,11 @@ def plot_integrand_with_shading(
     x_min: Optional[float] = None,
     x_max: Optional[float] = None,
     variable: str = "x",
-) -> dict:
-    """Plot a function and shade the area under the curve between x=a and x=b.
-    Computes the numerical value of int_a^b f(x) dx (via scipy.integrate.quad) and shows
-    it in the title. Useful for visualizing integral problems and sanity-checking values.
-    Saves a PNG to <project>/images/ and returns the file path.
+) -> list[Image | str]:
+    """Plot a function with the area under the curve shaded between x=a and x=b, and display the
+    numerical value of int_a^b f(x) dx (computed via scipy.integrate.quad) in the title. Reach for
+    this whenever you need to sanity-check an integral, illustrate a Riemann-style problem, or show
+    the geometric meaning of a definite integral. Returns the rendered PNG inline.
     Example: expression='exp(-x**2)', a=-2, b=2 (truncated Gaussian)"""
     from scipy.integrate import quad
 

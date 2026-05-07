@@ -15,6 +15,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from fastmcp import FastMCP
+from fastmcp.utilities.types import Image
 
 mcp = FastMCP("commutative-diagrams")
 
@@ -48,28 +49,36 @@ def _save_png(raw: bytes, description: str) -> str:
     return str(path)
 
 
-def _fig_to_image(fig: plt.Figure, description: str) -> dict:
+def _fig_to_image(fig: plt.Figure, description: str) -> list[Image | str]:
+    """Render `fig` to PNG, save a copy, and return [inline image, "Saved to <path>"]."""
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight")
     plt.close(fig)
-    path = _save_png(buf.getvalue(), description)
-    return {"type": "text", "text": path}
+    raw = buf.getvalue()
+    path = _save_png(raw, description)
+    return [Image(data=raw, format="png"), f"Saved to {path}"]
+
+
+def _png_bytes_to_image(raw: bytes, description: str) -> list[Image | str]:
+    """Same as _fig_to_image but for already-rendered PNG bytes."""
+    path = _save_png(raw, description)
+    return [Image(data=raw, format="png"), f"Saved to {path}"]
 
 
 @mcp.tool()
-def render_tikzcd(tikzcd_source: str) -> dict:
-    """Render a tikz-cd commutative diagram. Saves a PNG to <project>/images/ and returns the file path.
-    Pass only the tikzcd environment body (without \\begin{tikzcd}...\\end{tikzcd}).
+def render_tikzcd(tikzcd_source: str) -> list[Image | str]:
+    """Render a tikz-cd commutative diagram via pdflatex. Reach for this whenever discussing
+    diagram chases, exact sequences, pullback/pushout squares, natural transformations, or any
+    categorical statement where a tikz-cd diagram is the standard way to communicate — bent arrows,
+    double arrows, two-cells, and labeled morphisms all render properly. Returns the rendered PNG
+    inline. Pass only the tikzcd environment body (without \\begin{tikzcd}...\\end{tikzcd}).
     Requires: pdflatex and the tikz-cd LaTeX package installed on the system.
     Example: tikzcd_source='A \\\\arrow[r, \"f\"] \\\\arrow[d, \"h\"] & B \\\\arrow[d, \"g\"] \\\\\\\\ C \\\\arrow[r, \"k\"] & D'"""
     if not shutil.which("pdflatex"):
-        return {
-            "type": "text",
-            "text": (
-                "pdflatex not found. Install TeX Live or MacTeX to use render_tikzcd.\n"
-                "Alternatively, use diagram_from_description for a matplotlib-rendered fallback."
-            ),
-        }
+        return [
+            "pdflatex not found. Install TeX Live or MacTeX to use render_tikzcd.\n"
+            "Alternatively, use diagram_from_description for a matplotlib-rendered fallback."
+        ]
 
     latex_doc = rf"""
 \documentclass[preview]{{standalone}}
@@ -91,12 +100,12 @@ def render_tikzcd(tikzcd_source: str) -> dict:
                 capture_output=True, text=True, timeout=30,
             )
         except subprocess.TimeoutExpired:
-            return {"type": "text", "text": "pdflatex timed out after 30s."}
+            return ["pdflatex timed out after 30s."]
 
         pdf_path = Path(tmpdir) / "diagram.pdf"
         if not pdf_path.exists():
             log = result.stdout[-1000:] if result.stdout else result.stderr[-1000:]
-            return {"type": "text", "text": f"pdflatex failed:\n{log}"}
+            return [f"pdflatex failed:\n{log}"]
 
         try:
             from pdf2image import convert_from_path
@@ -104,25 +113,23 @@ def render_tikzcd(tikzcd_source: str) -> dict:
             if images:
                 buf = BytesIO()
                 images[0].save(buf, format="PNG")
-                path = _save_png(buf.getvalue(), "Commutative diagram (tikzcd)")
-                return {"type": "text", "text": path}
+                return _png_bytes_to_image(buf.getvalue(), "Commutative diagram (tikzcd)")
         except ImportError:
             pass
 
-        # Fallback: try to convert PDF with matplotlib
-        return {
-            "type": "text",
-            "text": (
-                f"PDF generated at {pdf_path} but pdf2image not installed for PNG conversion.\n"
-                "Install: pip install pdf2image (also needs poppler)."
-            ),
-        }
+        # Fallback: pdf2image not available
+        return [
+            f"PDF generated at {pdf_path} but pdf2image not installed for PNG conversion.\n"
+            "Install: pip install pdf2image (also needs poppler)."
+        ]
 
 
 @mcp.tool()
-def render_quiver(quiver_json: str) -> dict:
-    """Render a commutative diagram from Quiver (q.uiver.app) JSON export. Saves a PNG to <project>/images/ and returns the file path.
-    Export from https://q.uiver.app by clicking Export → JSON, then paste here.
+def render_quiver(quiver_json: str) -> list[Image | str]:
+    """Render a commutative diagram from a Quiver (q.uiver.app) JSON export. Reach for this when
+    the user has a diagram already laid out in Quiver, or when q.uiver.app's manual positioning is
+    preferable to the auto-layout in `diagram_from_description`. Returns the rendered PNG inline.
+    Export from https://q.uiver.app via Export → JSON, then paste here.
     Quiver JSON format: [0, {"nodes": [...], "edges": [...]}]"""
     import json
 
@@ -134,15 +141,15 @@ def render_quiver(quiver_json: str) -> dict:
         elif isinstance(data, dict):
             payload = data
         else:
-            return {"type": "text", "text": "Unrecognized Quiver JSON format."}
+            return ["Unrecognized Quiver JSON format."]
 
         nodes = payload.get("nodes", [])
         edges = payload.get("edges", [])
     except json.JSONDecodeError as e:
-        return {"type": "text", "text": f"JSON parse error: {e}"}
+        return [f"JSON parse error: {e}"]
 
     if not nodes:
-        return {"type": "text", "text": "No nodes found in Quiver JSON."}
+        return ["No nodes found in Quiver JSON."]
 
     # Quiver positions are grid coords (x, y); invert y for matplotlib (y axis up)
     positions = {}
@@ -184,8 +191,12 @@ def render_quiver(quiver_json: str) -> dict:
 
 
 @mcp.tool()
-def diagram_from_description(description: str) -> dict:
-    """Render a commutative diagram from a simple text description. Saves a PNG to <project>/images/ and returns the file path.
+def diagram_from_description(description: str) -> list[Image | str]:
+    """Render a commutative diagram from a simple text description (no LaTeX needed). Reach for
+    this for quick categorical pictures — squares, triangles, universal-property diagrams, functor
+    actions, factoring through an object — whenever you'd otherwise type out objects and arrows in
+    chat. Faster than `render_tikzcd` and works even without a LaTeX install. Returns the rendered
+    PNG inline.
     Format (one per line):
       objects: A B C D
       arrows: f: A -> B, g: B -> D, h: A -> C, k: C -> D
@@ -195,7 +206,7 @@ def diagram_from_description(description: str) -> dict:
       arrows: f: A -> B, g: B -> D, h: A -> C, k: C -> D"""
     parsed = _parse_diagram_dsl(description)
     if "error" in parsed:
-        return {"type": "text", "text": parsed["error"]}
+        return [parsed["error"]]
 
     objects = parsed["objects"]
     arrows = parsed["arrows"]

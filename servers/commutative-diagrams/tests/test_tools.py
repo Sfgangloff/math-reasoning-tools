@@ -1,14 +1,20 @@
-import base64
 import pytest
+from fastmcp.utilities.types import Image
 from math_commutative_diagrams.server import diagram_from_description, render_quiver
 
 
-def _is_png(result: dict) -> bool:
+def _is_png(result) -> bool:
+    """Each render tool returns [Image, "Saved to ..."]; verify the inline PNG."""
+    if not isinstance(result, list) or not result:
+        return False
+    img = next((x for x in result if isinstance(x, Image)), None)
+    path_block = next((x for x in result if isinstance(x, str)), None)
     return (
-        isinstance(result, dict)
-        and result.get("type") == "image"
-        and result.get("mimeType") == "image/png"
-        and len(base64.b64decode(result["data"])) > 1000
+        img is not None
+        and img.data is not None
+        and len(img.data) > 1000
+        and path_block is not None
+        and path_block.startswith("Saved to ")
     )
 
 

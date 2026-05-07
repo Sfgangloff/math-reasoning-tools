@@ -60,6 +60,21 @@ python3 scripts/check-mcp.py
 - You add a new server under `servers/` or `external/`.
 - You **move or rename the repo** — the entries in `~/.claude.json` use absolute paths, so they break if the repo's location changes. Re-running rewrites them.
 
+### Reload after editing a server
+
+After editing a server's source, the running MCP process still holds the old code
+until it's restarted. To force a reload of every server under `servers/`:
+
+```bash
+python3 scripts/reload-mcp.py
+```
+
+This terminates the live stdio process for each server (Claude Code respawns
+them on the next tool call) and runs a quick boot/`tools/list` check against
+the new code. Servers under `external/` (e.g. `lean-lsp-mcp`) are left alone —
+they rarely change locally and reloading them costs LSP startup time. Pass
+`--no-check` to skip the smoke test.
+
 ### Where generated images go
 
 Tools that produce images (`plot_function`, `draw_graph`, `render_tikzcd`, …) write
