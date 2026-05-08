@@ -72,6 +72,64 @@ uv run fastmcp dev src/math_<name>/server.py
 
 This starts an interactive MCP inspector in the terminal where you can call tools manually.
 
+## Adding a new skill
+
+A skill is a markdown procedure that orchestrates several MCP tools into a recurring multi-step workflow. Skills are *not* wrappers around individual tools.
+
+1. **Verify it's actually a skill.** If the workflow is one tool call, it doesn't need a skill — Claude can call the tool directly. The bar: at least 2 tools, with a procedure that's worth capturing (cascade, stop-condition, synthesis step).
+2. Create `skills/<category>/<skill-name>/SKILL.md`. Categories: `intuition/`, `conjecture/`, `paper/`, `lean/`, `diagram/` (add a new one if needed).
+3. Use the frontmatter template below. Front-load the `description` with words the user would actually say so auto-invocation triggers.
+4. Write the procedure body: numbered steps, name each tool explicitly (`call lean_loogle with X`, not `search Mathlib`), include skip-if conditions where appropriate.
+5. Run `python3 scripts/setup-skills.py` to symlink it into `~/.claude/skills/`.
+6. Test by triggering the description naturally in a Claude Code session (and via `/<skill-name>` for forced invocation).
+7. Update the catalog in `skills/README.md` and `docs/skill-routing.md`.
+
+### SKILL.md template
+
+```markdown
+---
+name: math-<workflow-name>
+description: <one sentence stating the procedure + when to use it; front-load words the user would say>
+paths: ["**/*.lean"]   # optional — restrict auto-invoke to specific file types
+---
+
+# math-<workflow-name>
+
+<one-paragraph framing>
+
+## When to use
+- <natural-language trigger 1>
+- <natural-language trigger 2>
+- **Skip** if <condition where a single tool would do>.
+
+## Procedure
+
+### 1. <step name>
+Call `<tool_name>` with <args>. <why this step matters>.
+
+### 2. <step name>
+Call `<tool_name>` …
+
+### N. Synthesize
+Report in this structure:
+<output template>
+
+## Examples of triggers
+- "<phrase 1>"
+- "<phrase 2>"
+
+## Notes
+- <edge case or known limitation>
+```
+
+### Skill design principles
+
+- **Procedure, not primitive.** If it's one tool call, delete it.
+- **Name tools explicitly.** Specificity makes Claude follow the steps.
+- **Triggerable description.** Words the user would actually use.
+- **Stop-conditions matter.** Cascades stop at first hit; checks stop at first failure.
+- **No scripts unless necessary.** Tools already do the work.
+
 ## Updating the catalog vs. building original tools
 
 Prefer cataloging over building when:
@@ -91,4 +149,4 @@ docs: clarify evaluation security model
 config: add minimal.json
 ```
 
-Prefix: `catalog`, `server(<name>)`, `docs`, `config`, `fix`, `chore`.
+Prefix: `catalog`, `server(<name>)`, `skill(<name>)`, `docs`, `config`, `fix`, `chore`.

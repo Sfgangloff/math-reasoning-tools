@@ -1,20 +1,35 @@
 # Architecture
 
-## Overview
+## Two layers
+
+The repo provides Claude Code with two parallel extension layers:
 
 ```
 Claude Code session
-       │
-       ├── lean-lsp-mcp          (external — Lean4 LSP + tactic search)
-       │
-       ├── math-compute-mcp      (this repo — SymPy, Z3, OEIS, batch examples)
-       ├── math-viz-mcp          (this repo — plots, graphs, LaTeX render)
-       ├── math-search-mcp       (this repo — ArXiv, MathWorld, Wikipedia, zbMATH)
-       ├── commutative-diagrams-mcp (this repo — tikz-cd / Quiver → PNG)
-       └── proof-explorer-mcp    (this repo — Lean4 proof tree, goal explain)
+   │
+   ├── Tool layer (MCP servers — primitives)
+   │     ├── lean-lsp-mcp           (external — Lean4 LSP + tactic search)
+   │     ├── math-compute-mcp       (this repo — SymPy, Z3, OEIS, batch examples)
+   │     ├── math-viz-mcp           (this repo — plots, graphs, LaTeX render)
+   │     ├── math-search-mcp        (this repo — ArXiv, MathWorld, Wikipedia, zbMATH)
+   │     ├── commutative-diagrams-mcp (this repo — tikz-cd / Quiver → PNG)
+   │     └── proof-explorer-mcp     (this repo — Lean4 proof tree, goal explain)
+   │
+   └── Skill layer (markdown procedures — workflows)
+         ├── math-function-intuition  (orchestrates plot_function + sympy_*)
+         ├── math-explore-sequence    (orchestrates oeis_* + batch_examples + plot_*)
+         ├── math-test-conjecture     (orchestrates batch_examples + conjecture_test + …)
+         ├── math-explore-paper       (orchestrates arxiv_*)
+         ├── lean-find-mathlib-lemma  (orchestrates lean_local_search + lean_loogle + …)
+         ├── lean-understand-goal     (orchestrates lean_goal + goal_explain + …)
+         └── lean-proof-checkpoint    (orchestrates lean_build + sorry_map + lean_verify)
 ```
 
-All servers are independent processes communicating with Claude Code via the MCP protocol (stdio transport). Each server is stateless.
+**Tool layer**: independent stdio MCP server processes registered in `~/.claude.json` via `scripts/setup-mcp.py`. Each server is stateless. Each tool is a single primitive operation.
+
+**Skill layer**: directories under `~/.claude/skills/<name>/` containing `SKILL.md` (frontmatter + procedure body). Symlinked from this repo's `skills/` by `scripts/setup-skills.py`. No process. Loaded into the model's context only when the skill triggers (auto from description match, or manual via `/<skill-name>`). Procedures call the tools above.
+
+The two layers are independent: installing skills does not touch `~/.claude.json`, and vice versa. You can run with both, either, or neither.
 
 ## MCP transport
 
@@ -29,6 +44,29 @@ All servers use **stdio transport** (the default for local MCP servers). The `.c
 ```
 
 For servers requiring API keys (e.g., `math-search` for some backends), keys are passed via `env`.
+
+## Skill structure
+
+Each skill under `skills/<category>/<skill-name>/` follows this layout:
+
+```
+skills/intuition/math-function-intuition/
+└── SKILL.md           # frontmatter (name, description, paths) + procedure body
+```
+
+Optional supporting files (per the [Skills standard](https://code.claude.com/docs/en/skills)):
+
+```
+skills/<category>/<name>/
+├── SKILL.md
+├── reference.md       # detailed reference loaded when the skill needs it
+└── scripts/
+    └── helper.py      # bundled scripts callable via Bash, used as glue only
+```
+
+None of the current skills bundle scripts — the MCP tools already do the work, so the procedure body just names them in order. Add `scripts/` only when a skill genuinely needs glue (parsing tool output across calls, or a transformation no tool exposes).
+
+The category folder (`intuition/`, `lean/`, `paper/`, `conjecture/`) is organizational — Claude Code identifies skills by the leaf directory name only.
 
 ## Server structure
 

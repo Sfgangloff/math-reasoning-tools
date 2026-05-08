@@ -4,6 +4,8 @@ All tools across the 5 original servers + lean-lsp-mcp. Grouped by concern:
 **general-purpose** tools work in any session; **Lean / proof-specific** tools
 only matter inside a Lean4 project.
 
+> **Skills (multi-tool procedures)** that orchestrate the tools below are documented separately in [`skills/README.md`](../skills/README.md) and routed via [`skill-routing.md`](skill-routing.md). For one-shot operations use the tool tables here; for recurring multi-step workflows, prefer the matching skill.
+
 ## General-purpose
 
 ### `math-compute` — Symbolic computation
@@ -132,3 +134,5 @@ servers for a particular kind of work. See [`configs/`](../configs/):
 | `lean-session.json` | lean-lsp-mcp, proof-explorer, math-search, math-viz | active Lean4 work — proof + lemma discovery |
 | `lean4-only.json` | lean-lsp-mcp, proof-explorer | Lean4 only, nothing else |
 | `full-stack.json` | all five original servers + lean-lsp-mcp | everything (largest tool surface) |
+
+For which **skills** pair with each profile (i.e. whose procedure is fully runnable given the bundled servers), see the matching table in [`skills.md`](skills.md#session-profiles).

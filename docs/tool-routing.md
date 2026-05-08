@@ -4,6 +4,8 @@
 
 Tool schemas are loaded on demand. If a tool name from these tables does not appear in your top-level tool list, fetch it via `ToolSearch` with `select:<tool_name>` before calling it.
 
+> **For multi-step workflows** (build intuition for a function, test a conjecture, audit a Lean proof), prefer the matching **skill** from [`skill-routing.md`](skill-routing.md) over running the tool cascade by hand. Skills package the procedure plus stop-conditions and synthesis. Use the tool tables below for one-shot operations.
+
 ## When to use which tool
 
 The routing tables below are split by concern: general-purpose tools that

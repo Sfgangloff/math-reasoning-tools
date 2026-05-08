@@ -6,9 +6,14 @@ MCP tools for theorem proving and mathematical reasoning with Claude Code.
   <img src="logo.png" width="300"/>
 </p>
 
-**Two roles:**
+**Two layers:**
+- **Tools** — MCP servers exposing primitive operations (evaluate this expression, plot this function, look up this lemma).
+- **Skills** — markdown procedures that orchestrate several tools into common multi-step workflows (build intuition for a function, test a conjecture, audit a Lean proof). See [`skills/`](skills/).
+
+**Three roles:**
 1. **Curated catalog** — assessed references to every existing MCP tool relevant to formal proof and mathematical reasoning.
 2. **Original servers** — new MCP servers filling the gaps: human-style intuition tools (visualization, example computation, diagram rendering, search) that pair with Lean4.
+3. **Workflow skills** — multi-tool procedures captured as Claude Code skills.
 
 ## Philosophy
 
@@ -110,6 +115,31 @@ several pre-built profiles you can drop into a project's `.claude/mcp.json`:
 
 See [`docs/tools.md`](docs/tools.md) for the per-tool reference.
 
+### Install the workflow skills
+
+Skills are multi-tool procedures (e.g. "build intuition for a function", "audit a Lean
+proof before commit"). They live in [`skills/`](skills/) and install via:
+
+```bash
+python3 scripts/setup-skills.py
+```
+
+This symlinks each skill into `~/.claude/skills/<name>/`. Idempotent.
+Does **not** touch `~/.claude.json` — the MCP servers stay registered exactly as
+`setup-mcp.py` left them. Tools and skills are independent layers; you can have
+both, either, or neither.
+
+```bash
+python3 scripts/setup-skills.py --list      # show install status
+python3 scripts/setup-skills.py --remove    # uninstall managed skills only
+```
+
+> If `~/.claude/skills/` did not previously exist, restart Claude Code once after
+> the first install so the directory watcher picks it up. Subsequent edits to
+> any `SKILL.md` propagate live.
+
+See [`skills/README.md`](skills/README.md) for the full catalog.
+
 ## Original Servers
 
 Five servers covering symbolic computation, visualization, search, diagram rendering, and proof navigation. See [docs/tools.md](docs/tools.md) for the full tool reference (47 tools total, all implemented):
@@ -119,6 +149,22 @@ Five servers covering symbolic computation, visualization, search, diagram rende
 - **math-search** (13): ArXiv search + paper-source/paper-text fetching, definition/citation/outline extraction, MathWorld/Wikipedia/zbMATH lookups, Loogle HTTP fallback
 - **commutative-diagrams** (3): tikz-cd / Quiver / DSL → PNG
 - **proof-explorer** (6): `sorry_map`, `tactic_history`, `lean_minimal_hypotheses`, plus `proof_tree`/`goal_explain`/`hypothesis_graph` (lean-lsp-mcp wrappers)
+
+## Workflow Skills
+
+Seven multi-tool procedures authored so far (more in `skills/README.md` under "Deferred"):
+
+| Skill | What it does |
+|---|---|
+| `math-function-intuition` | Plot + key values + critical points + asymptotics for a 1-var function. |
+| `math-explore-sequence` | OEIS lookup + further terms + growth plot for a sequence. |
+| `math-test-conjecture` | Cascade examples → random sampling → structured search → SMT. |
+| `math-explore-paper` | Outline + glossary + main results + citation graph for an arXiv paper. |
+| `lean-find-mathlib-lemma` | Cascade local search → leansearch → loogle → leanfinder → state_search. |
+| `lean-understand-goal` | Decode a stuck Lean goal: English explanation + hypothesis graph + minimal hypotheses + tactic history. |
+| `lean-proof-checkpoint` | Pre-commit audit: build + sorry map + axiom audit. |
+
+Authoring a new skill: see the "Adding a new skill" section of [`skills/README.md`](skills/README.md) and the design principles below it.
 
 ## Catalog
 
