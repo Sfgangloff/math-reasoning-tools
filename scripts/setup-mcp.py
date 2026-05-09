@@ -257,9 +257,21 @@ def main():
             config = json.load(f)
 
     existing_servers: dict = config.get("mcpServers", {})
+    # Servers the user disabled via scripts/toggle.py. We must not re-enable them
+    # here, but we do keep their stashed config in sync so re-enabling later
+    # picks up any changes to args / command from this repo.
+    disabled_servers: dict = config.get("disabledMcpServers", {})
 
-    added, updated = [], []
+    added, updated, refreshed_disabled = [], [], []
     for key, new_cfg in discovered.items():
+        if key in disabled_servers:
+            merged = {**new_cfg}
+            if disabled_servers[key].get("env"):
+                merged["env"] = disabled_servers[key]["env"]
+            if disabled_servers[key] != merged:
+                disabled_servers[key] = merged
+                refreshed_disabled.append(key)
+            continue
         if key not in existing_servers:
             existing_servers[key] = new_cfg
             added.append(key)
@@ -273,6 +285,8 @@ def main():
                 updated.append(key)
 
     config["mcpServers"] = existing_servers
+    if disabled_servers:
+        config["disabledMcpServers"] = disabled_servers
     with open(CLAUDE_JSON, "w") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
@@ -282,12 +296,17 @@ def main():
         print(f"  + added:   {key}")
     for key in updated:
         print(f"  ~ updated: {key}")
-    if not added and not updated:
+    for key in refreshed_disabled:
+        print(f"  ~ refreshed (disabled): {key}")
+    if not added and not updated and not refreshed_disabled:
         print("  (no changes — all servers already present)")
 
-    print(f"\nAll configured servers ({len(existing_servers)}):")
+    print(f"\nAll configured servers ({len(existing_servers) + len(disabled_servers)}):")
     for key in existing_servers:
         tag = "[new]" if key in added else "[updated]" if key in updated else "[existing]"
+        print(f"  {tag:12} {key}")
+    for key in disabled_servers:
+        tag = "[disabled*]" if key in refreshed_disabled else "[disabled]"
         print(f"  {tag:12} {key}")
 
     if not args.skip_routing:

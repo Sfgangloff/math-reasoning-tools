@@ -140,6 +140,27 @@ python3 scripts/setup-skills.py --remove    # uninstall managed skills only
 
 See [`skills/README.md`](skills/README.md) for the full catalog.
 
+### Disable a server or skill
+
+When the active tool surface gets noisy, disable specific MCP servers or
+skills by name:
+
+```bash
+python3 scripts/toggle.py list                       # show enabled/disabled status
+python3 scripts/toggle.py disable math-viz lean-find-mathlib-lemma
+python3 scripts/toggle.py enable  math-viz lean-find-mathlib-lemma
+```
+
+Servers move between `mcpServers` and a sibling `disabledMcpServers` block in
+`~/.claude.json` (so any custom `env` overrides survive a round-trip). Skills
+have their `~/.claude/skills/<name>/` symlink unlinked and re-created from the
+repo source, with the disabled set tracked in the same registry
+`setup-skills.py` uses. Restart Claude Code (or run `scripts/reload-mcp.py`
+for servers) for the change to take effect.
+
+If a name matches both a server and a skill, disambiguate with
+`server:<name>` or `skill:<name>`.
+
 ## Original Servers
 
 Five servers covering symbolic computation, visualization, search, diagram rendering, and proof navigation. See [docs/tools.md](docs/tools.md) for the full tool reference (47 tools total, all implemented):

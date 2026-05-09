@@ -50,15 +50,17 @@ def discover_skills() -> dict[str, Path]:
 
 def load_registry() -> dict:
     if not REGISTRY.exists():
-        return {"managed": []}
+        return {"managed": [], "disabled": []}
     try:
         with open(REGISTRY) as f:
             data = json.load(f)
     except json.JSONDecodeError:
         print(f"warning: {REGISTRY} is not valid JSON; treating as empty.", file=sys.stderr)
-        return {"managed": []}
+        return {"managed": [], "disabled": []}
     if "managed" not in data or not isinstance(data["managed"], list):
         data["managed"] = []
+    if "disabled" not in data or not isinstance(data["disabled"], list):
+        data["disabled"] = []
     return data
 
 
@@ -82,13 +84,25 @@ def is_our_symlink(target: Path, expected_src: Path) -> bool:
 def install(skills: dict[str, Path], registry: dict) -> None:
     SKILLS_DST.mkdir(parents=True, exist_ok=True)
     managed: set[str] = set(registry["managed"])
+    disabled: set[str] = set(registry["disabled"])
 
     installed = 0
     repaired = 0
     skipped: list[str] = []
+    skipped_disabled = 0
 
     for name, src in sorted(skills.items()):
         dst = SKILLS_DST / name
+
+        # Honor disables made via scripts/toggle.py: never recreate the
+        # symlink for a skill the user explicitly disabled.
+        if name in disabled:
+            if dst.is_symlink() and is_our_symlink(dst, src):
+                # Stale symlink we somehow left behind — drop it to match
+                # the disabled state.
+                dst.unlink()
+            skipped_disabled += 1
+            continue
 
         if dst.is_symlink():
             if is_our_symlink(dst, src):
@@ -120,8 +134,9 @@ def install(skills: dict[str, Path], registry: dict) -> None:
     registry["managed"] = sorted(managed)
     save_registry(registry)
 
+    already_present = len(skills) - installed - repaired - len(skipped) - skipped_disabled
     print(f"\nInstalled: {installed}  Repaired: {repaired}  Already present: "
-          f"{len(skills) - installed - repaired - len(skipped)}")
+          f"{already_present}  Disabled: {skipped_disabled}")
     if skipped:
         print(f"\nSkipped {len(skipped)}:")
         for line in skipped:
@@ -148,6 +163,8 @@ def remove(registry: dict) -> None:
         removed += 1
 
     registry["managed"] = []
+    # Clear toggle.py's disabled list too — we're wiping the slate.
+    registry["disabled"] = []
     save_registry(registry)
     print(
         f"\nRemoved: {removed}  Already gone: {missing}  "
@@ -157,6 +174,7 @@ def remove(registry: dict) -> None:
 
 def list_status(skills: dict[str, Path], registry: dict) -> None:
     managed = set(registry["managed"])
+    disabled = set(registry["disabled"])
     print(f"Repo skills source: {SKILLS_SRC}")
     print(f"Install destination: {SKILLS_DST}")
     print(f"Registry: {REGISTRY}\n")
@@ -164,7 +182,9 @@ def list_status(skills: dict[str, Path], registry: dict) -> None:
     print(f"Skills found in repo ({len(skills)}):")
     for name, src in sorted(skills.items()):
         dst = SKILLS_DST / name
-        if is_our_symlink(dst, src):
+        if name in disabled:
+            status = "disabled (toggle.py)"
+        elif is_our_symlink(dst, src):
             status = "linked"
         elif dst.is_symlink():
             status = f"symlink to {dst.resolve()} (not ours)"
